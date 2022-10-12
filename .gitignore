@@ -1,0 +1,9 @@
+#Suppress folders related to R projects
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+
+# Suppress Mac-specific folders
+.DS_Store
