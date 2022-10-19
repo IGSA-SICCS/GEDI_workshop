@@ -8,6 +8,8 @@ Description: Studying forest structure from space: An introduction to GEDI
     lidar data pre-processing and analysis in ecological applications
 License: MIT + file LICENSE
 Depends:
+    R (>= 3.5.0)
+Imports:
     tidyverse
 Remotes:
 Encoding: UTF-8
