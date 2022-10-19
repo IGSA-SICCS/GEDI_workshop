@@ -14,7 +14,8 @@ write_dockerfile(maintainer = "Emma Reich")
 # override this by passing r_date to some arbitrary date
 # (but one for which a R version exists).
 
-generate_badge() # This generates a badge for your readme.
+generate_badge(path = ".",
+               branch = "main") # This generates a badge for your readme.
 
 # ----------------------------------------------
 # At this time 🙌 push the code to GitHub 🙌
