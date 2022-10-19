@@ -7,9 +7,7 @@ Authors@R:
 Description: Studying forest structure from space: An introduction to GEDI
     lidar data pre-processing and analysis in ecological applications
 License: MIT + file LICENSE
-Depends: 
-    holepunch
-Remotes: 
-    karthik/holepunch
+Depends:
+Remotes:
 Encoding: UTF-8
 LazyData: true
