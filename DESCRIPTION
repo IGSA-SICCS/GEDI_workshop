@@ -3,10 +3,10 @@ Package: GEDI Workshop - AGU 2022 Fall Meeting
 Title: What the Package Does (One Line, Title Case)
 Version: 0.0.1
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
+    person("Emma", "Reich", , "egr65@nau.edu", role = c("aut", "cre"))
 Description: Studying forest structure from space: An introduction to GEDI
     lidar data pre-processing and analysis in ecological applications
-License: What license it uses
+License: MIT + file LICENSE
 Depends: 
     holepunch
 Remotes: 

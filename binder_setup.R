@@ -8,7 +8,7 @@ write_compendium_description(package = "GEDI Workshop - AGU 2022 Fall Meeting",
                              description = "Studying forest structure from space: An introduction to GEDI lidar data pre-processing and analysis in ecological applications")
 # to write a description, with dependencies. Be sure to fill in placeholder text
 
-write_dockerfile(maintainer = "Emma Reich") 
+write_dockerfile(maintainer = "Emma Reich", branch = "main") 
 # To write a Dockerfile. It will automatically pick the date of the last 
 # modified file, match it to that version of R and add it here. You can 
 # override this by passing r_date to some arbitrary date
