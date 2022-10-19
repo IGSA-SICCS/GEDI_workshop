@@ -8,11 +8,7 @@ Description: Studying forest structure from space: An introduction to GEDI
     lidar data pre-processing and analysis in ecological applications
 License: MIT + file LICENSE
 Depends:
-    dplyr,
-    ggplot2,
-    lubridate,
-    tidyr,
-    viridis
+    tidyverse
 Remotes:
 Encoding: UTF-8
 LazyData: true
