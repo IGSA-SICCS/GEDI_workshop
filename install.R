@@ -1,1 +1,5 @@
 install.packages("tidyverse")
+install.packages("data.table")
+install.packages("lidR")
+install.packages("sf")
+install.packages("httr")
