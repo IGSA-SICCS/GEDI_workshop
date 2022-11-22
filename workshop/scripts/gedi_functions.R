@@ -1,5 +1,3 @@
-# Reference: https://github.com/carlos-alberto-silva/rGEDI
-
 gedi_finder <- function(product, bbox) {
   
   #Reference: https://git.earthdata.nasa.gov/projects/LPDUR/repos/gedi-finder-tutorial-r/browse/GEDI_Finder.R
@@ -38,7 +36,9 @@ gedi_finder <- function(product, bbox) {
     }
     
     # Return the list of links
+    print(sprintf("Found %s %s overlapping orbits found.", length(granules), product))
     return(granules)
+    
   } else {
     
     # If the request did not complete successfully, print out the response from CMR
@@ -46,19 +46,18 @@ gedi_finder <- function(product, bbox) {
   }
 }
 
-gedi_finder_temp_filter <- function(roi_name, product, bbox, daterange, download_path){
+gedi_temp_filter <- function(granules, product, daterange){
   
-  # Call the gedi_finder function using the user-provided inputs
-  granules <- gedi_finder(product, bbox)
-  
-  # Temporally filter using date range
   #defining start and end dates
   start_date <- daterange[1]
   end_date <- daterange[2]
   
   #formatting dates from granules list
   found_orbits <- data.frame(url = grep('.h5$', unlist(granules), value = TRUE), stringsAsFactors = FALSE)
-  found_orbits$yyyydoy <- substr(start = 0, stop = 7, x = gsub('^.+_B_|_02_005_0.+.h5$', '', found_orbits$url))
+  if (product == 'GEDI02_A.002'){
+    found_orbits$yyyydoy <- substr(start = 0, stop = 7, x = gsub('^.+_A_|_02_005_0.+.h5$', '', found_orbits$url))
+  }else{
+    found_orbits$yyyydoy <- substr(start = 0, stop = 7, x = gsub('^.+_B_|_02_005_0.+.h5$', '', found_orbits$url))}
   found_orbits$yyyymmdd <- as.Date(sapply(found_orbits$yyyydoy, function(x){
     as.character(as.Date(x = as.numeric(substr(x, start = 5, stop = 7)),
                          origin = paste0(substr(x, start = 0, stop = 4), "-01-01")))
@@ -67,53 +66,15 @@ gedi_finder_temp_filter <- function(roi_name, product, bbox, daterange, download
   #filtering to orbits within date range
   found_orbits <- found_orbits[found_orbits$yyyymmdd >= as.Date(daterange[1]) & found_orbits$yyyymmdd <= as.Date(daterange[2]), ]
   orbit_list <- found_orbits$url
-  print(sprintf("%s %s Version 2 granules found.", length(orbit_list), product))
+  print(sprintf("Found %s %s overlapping orbits from %s to %s.", length(orbit_list), product, start_date, end_date))
   
-  # Export Results
-  # Set up output textfile name
-  outName <- sprintf("%s_%s.txt", roi_name, sub('.002', '_002', product))
-  outDir <- paste0(download_path, 'textfiles/')
-  dir.create(outDir, recursive = TRUE, showWarnings = FALSE)
-  
-  # Save to text file in current working directory
-  filepath <- paste0(outDir, outName)
-  write.table(orbit_list, filepath, row.names = FALSE, col.names = FALSE, quote = FALSE, sep='\n')
-  print(sprintf("File containing links to intersecting %s Version 2 data has been saved to: %s", product, filepath))
-  
-  return(filepath)
+  return(orbit_list)
   
 }
 
-gedifinder<-function(product, ul_lat, ul_lon, lr_lat, lr_lon,version="001",daterange=NULL){
-  response = curl::curl(sprintf(
-    "https://lpdaacsvc.cr.usgs.gov/services/gedifinder?%s=%s&%s=%s&%s=%f,%f,%f,%f&output=json",
-    "version",version,
-    "product", product,
-    "bbox", ul_lat, ul_lon, lr_lat,lr_lon))
-  content = suppressWarnings(readLines(response))
-  close(response)
-  results = jsonlite::parse_json(content)
-  if(results$message != "") {
-    stop(results$message)
-  }
-  
-  out<-simplify2array(results$data)
-  
-  if (!is.null(daterange)){
-    dates<-as.Date(gsub(".*(\\d{4})\\.(\\d{2})\\.(\\d{2}).*", "\\1-\\2-\\3",out))
-    out_sub<-out[dates >= as.Date(daterange[1]) & dates <= as.Date(daterange[2])]
-    
-    if(length(out_sub)<1) {
-      stop(paste("There are not GEDI data avalaible between",daterange[1],"and",daterange[2]))
-    } else {
-      return(out_sub)
-    }
-  } else {
-    return(out)
-  }
-}
+#Reference: https://github.com/carlos-alberto-silva/rGEDI
 
-gediDownload<-function(filepath, outdir = NULL, overwrite = FALSE, buffer_size = 512, timeout=10){
+gedi_download<-function(filepath, outdir = NULL, overwrite = FALSE, buffer_size = 512, timeout=10){
   if (is.null(outdir)) {
     outdir == tempdir()
   }
@@ -155,7 +116,7 @@ gediDownloadFile = function(url, outdir, overwrite, buffer_size, netrc, timeout)
   if((! overwrite) && file.exists(filename)) {
     message("Skipping this file, already downloaded!")
     return(0)
-  } # Skip if already downloaded
+  } # SKip if already downloaded
   
   # Temporary to file to resume to
   resume=paste0(filename, ".curltmp")
@@ -225,107 +186,6 @@ getNetRC = function(dl_dir) {
     message("A .netrc file with your Earthdata Login credentials was stored in the output directory ")
   }
   return (netrc)
-}
-
-readLevel1B <-function(level1Bpath) {
-  level1b_h5 <- hdf5r::H5File$new(level1Bpath, mode = 'r')
-  level1b<- new("gedi.level1b", h5 = level1b_h5)
-  return(level1b)
-}
-
-readLevel2A <-function(level2Apath) {
-  level2a_h5 <- hdf5r::H5File$new(level2Apath, mode = 'r')
-  level2a<- new("gedi.level2a", h5 = level2a_h5)
-  return(level2a)
-}
-
-readLevel2B <-function(level2Bpath) {
-  level2b_h5 <- hdf5r::H5File$new(level2Bpath, mode = 'r')
-  level2b<-new("gedi.level2b", h5 = level2b_h5)
-  return(level2b)
-}
-
-getLevel1BGeo<-function(level1b,select=c("elevation_bin0", "elevation_lastbin")) {
-  
-  select<-unique(c("latitude_bin0", "latitude_lastbin", "longitude_bin0", "longitude_lastbin","shot_number",select))
-  level1b<-level1b@h5
-  
-  datasets<-hdf5r::list.datasets(level1b, recursive = T)
-  datasets_names<-basename(datasets)
-  
-  selected<-datasets_names %in% select
-  
-  for ( i in select){
-    if  ( i =="shot_number"){
-      assign(i,bit64::as.integer64(NaN))
-    } else {
-      assign(i,numeric())
-    }
-  }
-  
-  dtse2<-datasets[selected][!grepl("geolocation/shot_number",datasets[selected])]
-  
-  
-  # Set progress bar
-  pb <- utils::txtProgressBar(min = 0, max = length(dtse2), style = 3)
-  i.s=0
-  
-  for ( i in dtse2){
-    i.s<-i.s+1
-    utils::setTxtProgressBar(pb, i.s)
-    name_i<-basename(i)
-    if ( name_i =="shot_number"){
-      assign(name_i, bit64::c.integer64(get(name_i),level1b[[i]][]))
-    } else {
-      assign(name_i, c(get(name_i), level1b[[i]][]))
-    }
-  }
-  
-  level1b.dt<-data.table::data.table(as.data.frame(get("shot_number")[-1]))
-  select2<-select[!select[]=="shot_number"]
-  
-  for ( i in select2){
-    level1b.dt[,i]<-get(i)
-  }
-  
-  colnames(level1b.dt)<-c("shot_number",select2)
-  close(pb)
-  return(level1b.dt)
-}
-
-getLevel1BWF<-function(level1b,shot_number){
-  
-  level1b<-level1b@h5
-  groups_id<-grep("BEAM\\d{4}$",gsub("/","",
-                                     hdf5r::list.groups(level1b, recursive = F)), value = T)
-  
-  i=NULL
-  for ( k in groups_id){
-    gid<-max(level1b[[paste0(k,"/shot_number")]][]==shot_number)
-    if (gid==1) {i=k}
-  }
-  
-  if(is.null(i)) {
-    stop(paste0("Shot number ", shot_number, " was not found within the dataset!. Please try another shot number"))
-  } else{
-    
-    shot_number_i<-level1b[[paste0(i,"/shot_number")]][]
-    shot_number_id<-which(shot_number_i[]==shot_number)
-    elevation_bin0<-level1b[[paste0(i,"/geolocation/elevation_bin0")]][]
-    elevation_lastbin<-level1b[[paste0(i,"/geolocation/elevation_lastbin")]][]
-    rx_sample_count<-level1b[[paste0(i,"/rx_sample_count")]][]
-    rx_sample_start_index<-level1b[[paste0(i,"/rx_sample_start_index")]][]
-    rx_sample_start_index_n<-rx_sample_start_index-min(rx_sample_start_index)+1
-    rxwaveform_i<-level1b[[paste0(i,"/rxwaveform")]][rx_sample_start_index_n[shot_number_id]:(rx_sample_start_index_n[shot_number_id]+rx_sample_count[shot_number_id]-1)]
-    rxwaveform_inorm<-(rxwaveform_i-min(rxwaveform_i))/(max(rxwaveform_i)-min(rxwaveform_i))*100
-    elevation_bin0_i<-elevation_bin0[shot_number_id]
-    elevation_lastbin_i<-elevation_lastbin[shot_number_id]
-    z=rev(seq(elevation_lastbin_i,elevation_bin0_i,(elevation_bin0_i-elevation_lastbin_i)/rx_sample_count[shot_number_id]))[-1]
-    
-    waveform<-new("gedi.fullwaveform", dt = data.table::data.table(rxwaveform=rxwaveform_i,elevation=z))
-    
-    return(waveform)
-  }
 }
 
 stopifnotMessage = function(...) {

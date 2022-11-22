@@ -1,0 +1,85 @@
+---
+title: "AGU_GEDI_Workshop"
+author: "Melissa Rose, Ivan Gonzalez, Jenna Keanny"
+date: '2022-11-21'
+output: html_document
+---
+
+SECTION 0: PREPARE R ENVIRONMENT
+0.1: Libraries
+```{r, warning=FALSE, message=FALSE}
+#define which libraries to use
+library(raster)   
+library(devtools) 
+library(sf) 
+library(data.table)
+library(lidR)
+library(httr)
+library(tidyr)
+library(curl)
+```
+
+0.2: Directory and Subdirectories 
+```{r}
+#define folder paths
+wd <- getwd()
+
+gL1B_dir <- './data/GEDI01_B.002/'
+gL2A_dir <- './data/GEDI02_A.002/'
+gL2B_dir <- './data/GEDI02_B.002/'
+```
+
+0.3: Source Scripts
+```{r, warning=FALSE, message=FALSE}
+#source rGEDI functions in scripts directory
+source('./scripts/gedi_functions.R')
+```
+
+
+SECTION 1: DOWNLOAD GEDI DATA FOR A REGION OF INTEREST
+1.1: Define region of interest and date range 
+```{r}
+#ROI: Columbia
+#specify bounding box coordinates for ROI
+ll_lon <- -75  #lower left longitude 
+ll_lat <- 0    #lower left latitude 
+ur_lon <- -74  #upper right longitude
+ur_lat <- 1    #upper right latitude 
+
+#convert into bounding box coordinates
+bbox <- paste(ll_lon, ll_lat, ur_lon, ur_lat, sep = ',')
+
+#specify the date range to filter orbits by
+daterange=c("2020-05-01","2020-07-31")
+```
+To Do: 
+add map to show region of interests
+
+1.2: Use gedi_finder to find overlapping GEDI orbits 
+```{r, warning=FALSE, message=FALSE}
+#create a list of all overlapping orbits for each GEDI data product 
+gL1B <- gedi_finder('GEDI01_B.002', bbox)  
+gL2A <- gedi_finder('GEDI02_A.002', bbox)
+gL2B <- gedi_finder('GEDI02_B.002', bbox)
+```
+
+1.3 Use gedi_temp_filter to subset list within date range
+```{r}
+#subset orbit list using daterange
+gL1B <- gedi_temp_filter(gL1B, 'GEDI01_B.002', daterange)
+gL2A <- gedi_temp_filter(gL2A, 'GEDI02_A.002', daterange)
+gL2B <- gedi_temp_filter(gL2B, 'GEDI02_B.002', daterange)
+```
+
+1.4: Use gedi_download to download GEDI data 
+```{r}
+#download data product to their output data directory 
+gedi_download(filepath=gL1B,outdir=gL1B_dir)
+gedi_download(filepath=gL2A,outdir=gL2A_dir)
+gedi_download(filepath=gL2B,outdir=gL2B_dir)
+```
+
+
+SECTION 3: EXTRACT FOREST STRUCTURE METRICS FROM GEDI DATA PRODUCTS
+
+
