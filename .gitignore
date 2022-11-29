@@ -9,4 +9,3 @@
 .DS_Store
 
 # Suppress large file folders (temp)
-data/
