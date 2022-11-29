@@ -12,11 +12,15 @@ SECTION 0: PREPARE R ENVIRONMENT
 library(raster)   
 library(devtools) 
 library(sf) 
+library(sp)
 library(data.table)
 library(lidR)
 library(httr)
 library(tidyr)
 library(curl)
+library(hdf5r)
+library(leaflet)
+library(leafsync)
 ```
 
 0.2: Directory and Subdirectories 
@@ -27,6 +31,7 @@ wd <- getwd()
 gL1B_dir <- './data/GEDI01_B.002/'
 gL2A_dir <- './data/GEDI02_A.002/'
 gL2B_dir <- './data/GEDI02_B.002/'
+shp_dir <- './data/shapefile/'
 ```
 
 0.3: Source Scripts
@@ -52,10 +57,22 @@ bbox <- paste(ll_lon, ll_lat, ur_lon, ur_lat, sep = ',')
 #specify the date range to filter orbits by
 daterange=c("2020-05-01","2020-07-31")
 ```
-To Do: 
-add map to show region of interests
 
-1.2: Use gedi_finder to find overlapping GEDI orbits 
+1.2: Visualize region of interest
+```{r}
+#view footprint locations for entire orbit on map 
+leaflet() %>%
+  addRectangles(
+    lng1=ll_lon, lat1=ll_lat,
+    lng2=ur_lon, lat2=ur_lat,
+    color = "red",
+    fillColor = "transparent") %>%
+  addScaleBar(options = list(imperial = FALSE)) %>%
+  addProviderTiles(providers$Esri.WorldImagery) %>%
+  addLegend(colors = "red", labels = "Bounding Box") 
+```
+
+1.3: Use gedi_finder to find overlapping GEDI orbits 
 ```{r, warning=FALSE, message=FALSE}
 #create a list of all overlapping orbits for each GEDI data product 
 gL1B <- gedi_finder('GEDI01_B.002', bbox)  
@@ -63,7 +80,7 @@ gL2A <- gedi_finder('GEDI02_A.002', bbox)
 gL2B <- gedi_finder('GEDI02_B.002', bbox)
 ```
 
-1.3 Use gedi_temp_filter to subset list within date range
+1.4 Use gedi_temp_filter to subset orbit list within date range
 ```{r}
 #subset orbit list using daterange
 gL1B <- gedi_temp_filter(gL1B, 'GEDI01_B.002', daterange)
@@ -71,7 +88,7 @@ gL2A <- gedi_temp_filter(gL2A, 'GEDI02_A.002', daterange)
 gL2B <- gedi_temp_filter(gL2B, 'GEDI02_B.002', daterange)
 ```
 
-1.4: Use gedi_download to download GEDI data 
+1.5: Use gedi_download to download GEDI data (DO NOT RUN)
 ```{r}
 #download data product to their output data directory 
 gedi_download(filepath=gL1B,outdir=gL1B_dir)
@@ -80,6 +97,203 @@ gedi_download(filepath=gL2B,outdir=gL2B_dir)
 ```
 
 
-SECTION 3: EXTRACT FOREST STRUCTURE METRICS FROM GEDI DATA PRODUCTS
+SECTION 2: CLIP GEDI DATA PRODUCTS TO REGION OF INTEREST 
+2.1 Read GEDI data
+```{r}
+#read the level 1B, 2A, and 2B for a single orbit
+gedilevel1B <- readLevel1B(level1Bpath = paste0(gL1B_dir,"GEDI01_B_2020121050305_O07826_02_T03778_02_005_01_V002.h5"))
+gedilevel2A <- readLevel2A(level2Apath = paste0(gL2A_dir,"GEDI02_A_2020121050305_O07826_02_T03778_02_003_01_V002.h5"))
+gedilevel2B <- readLevel2B(level2Bpath = paste0(gL2B_dir,"GEDI02_B_2020121050305_O07826_02_T03778_02_003_01_V002.h5"))
+```
+
+2.2 Clip data within bbox coordinates (DO NOT RUN)
+```{r}
+gedilevel1B_clip <- clipLevel1B(gedilevel1B, ll_lon, ur_lon, ll_lat, ur_lat,
+                                output = paste0(gL1B_dir,"GEDI01_B_2020121050305_O07826_02_T03778_02_005_01_V002_clip.h5"))
+gedilevel2A_clip <- clipLevel2A(gedilevel2A, ll_lon, ur_lon, ll_lat, ur_lat, 
+                                output = paste0(gL2A_dir,"GEDI02_A_2020121050305_O07826_02_T03778_02_003_01_V002_clip.h5"))
+gedilevel2B_clip <- clipLevel2B(gedilevel2B, ll_lon, ur_lon, ll_lat, ur_lat, 
+                                output = paste0(gL2B_dir,"GEDI02_B_2020121050305_O07826_02_T03778_02_003_01_V002_clip.h5"))
+```
+
+```{r}
+gedilevel1B_clip <- readLevel1B(level1Bpath = paste0(gL1B_dir,"GEDI01_B_2020121050305_O07826_02_T03778_02_005_01_V002_clip.h5"))
+gedilevel2A_clip <- readLevel2A(level2Apath = paste0(gL2A_dir,"GEDI02_A_2020121050305_O07826_02_T03778_02_003_01_V002_clip.h5"))
+gedilevel2B_clip <- readLevel2B(level2Bpath = paste0(gL2B_dir,"GEDI02_B_2020121050305_O07826_02_T03778_02_003_01_V002_clip.h5"))
+```
+
+2.3 Retrieve coordinates for each GEDI footprint in clipped dataset
+```{r}
+#use GEDIL1B data to find coordinates for each shot_number 
+level1bGeo <- getLevel1BGeo(level1b=gedilevel1B_clip,select=c("elevation_bin0"))
+head(level1bGeo)
+
+#convert shot_number from integer to character
+level1bGeo$shot_number <- paste0(level1bGeo$shot_number)
+
+#remove NA coordinate values
+level1bGeo <- na.omit(level1bGeo)
+
+#convert level1bGeo to spatial object
+level1bGeo_spdf <- SpatialPointsDataFrame(cbind(level1bGeo$longitude_bin0, level1bGeo$latitude_bin0),
+                                        data=level1bGeo)
+#export orbit footprint locations as shapefile
+#shapefile(level1bGeo_spdf, paste0(shp_dir, "GEDI01_B_2020121050305_O07826_02_T03778_02_005_01_V002_clip"))
+```
+
+2.4 Visualize location of clipped GEDI footprints  
+```{r}
+#view footprint locations for entire orbit on map 
+leaflet() %>%
+  addRectangles(
+    lng1=ll_lon, lat1=ll_lat,
+    lng2=ur_lon, lat2=ur_lat,
+    color = "red",
+    fillColor = "transparent") %>%
+  addCircleMarkers(level1bGeo$longitude_bin0,
+                   level1bGeo$latitude_bin0,
+                   radius = 1,
+                   opacity = 0.5,
+                   color = "blue", 
+                   popup = paste0("shot_number: ", level1bGeo$shot_number))  %>%
+  addScaleBar(options = list(imperial = FALSE)) %>%
+  addProviderTiles(providers$Esri.WorldImagery) %>%
+  addLegend(colors = c("red", "blue"), labels = c("Bounding Box", "GEDI Footprints")) 
+```
+
+```{r}
+sample_region <- level1bGeo[shot_number %in% c("78260000200055294", "78260000200055295", "78260000200055296", "78260000200055297", "78260000200055298")]
+
+#view footprint in sample region 
+leaflet() %>%
+  addRectangles(
+    lng1=-74.079, lat1=0.3220,
+    lng2=-74.0765, lat2=0.32425,
+    color = "grey",
+    fillColor = "transparent") %>%
+  addCircleMarkers(sample_region$longitude_bin0,
+                   sample_region$latitude_bin0,
+                   radius = 25,
+                   weight = 2,
+                   fillColor = "transparent",
+                   color = "blue", 
+                   popup = paste0("shot_number: ", sample_region$shot_number))  %>%
+  addScaleBar(options = list(imperial = FALSE)) %>%
+  addProviderTiles(providers$Esri.WorldImagery) %>%
+  addLegend(colors = c("grey", "blue"), labels = c("Sample Region", "GEDI Footprints")) 
+```
+
+SECTION 3: Visualize GEDI Data Products 
+3.1 Plot GEDIL1B Full Waveform 
+```{r}
+#select shot_numbers for disturbed, edge, and intact forest
+shot_number <- "78261100200053382"
+
+wf <- getLevel1BWF(level1b, shot_number=shot_number)
+
+par(mfrow = c(1,2), cex.axis = 1.5)
+plot(wf, relative=FALSE, polygon=TRUE, type="l", lwd=2, col="forestgreen",
+xlab="", ylab="Elevation (m)")
+
+
+#plotWFMetrics(gedilevel1B_clip, gedilevel2A_clip, shot_number, rh=c(25, 50, 75, 90))
+
+```
+
+```{r}
+level1b=gedilevel1B_clip
+level2a=gedilevel2A_clip
+shot_number="78261100200053382"
+rh=c(25, 50, 75)
+
+  # Avoid NOTEs from checking
+  elevation = NULL
+  oldpar <- par(no.readonly = TRUE)
+  on.exit(par(oldpar)) 
+
+  # Extracting GEDI full waveform for a giving shotnumber
+  wf <- getLevel1BWF(level1b, shot_number=shot_number)
+
+  level2AM<-getLevel2AM(level2a)
+  shotid_mask = which(level2AM$shot_number == shot_number)
+
+  level2_shot = level2AM[shotid_mask,]
+  ground_z = level2_shot$elev_lowestmode
+  rhs = paste0(as.character(c("rh0", as.character(paste0("rh",rh)), "rh100")))
+  rh = level2_shot[, rhs, with=FALSE]
+  rh_z = rh + ground_z
+
+
+  top_z = level2AM[shotid_mask,]$elev_highestreturn
+
+  range_energy = range(wf@dt$rxwaveform)
+  range_abs_diff = abs(diff(range_energy))
+
+  requireNamespace("data.table")
+
+  range_z = range(rh_z)
+  min_z = min(range_z)
+  max_z = max(range_z)
+  diff_z = abs(diff(range_z))
+  wf_between = wf@dt[elevation %between% range_z,,]
+  energy_offset = min(range_energy)
+  energy_no_offset = (wf_between$rxwaveform - energy_offset)
+  cumsum_energy = cumsum(rev(energy_no_offset))
+
+  range_cumsum = range(cumsum_energy)
+  range_abs_diff_cumsum = abs(diff(range_cumsum))
+  energy_cum_normalized = ((cumsum_energy)/(range_abs_diff_cumsum/range_abs_diff))+energy_offset
+
+  par(mar = c(5, 4, 4, 4) + 0.3)
+  offset = diff_z*0.2
+  ymin = min_z-offset
+  ymax = max_z+offset
+  wf_interest=wf@dt[wf@dt$elevation >= ymin & wf@dt$elevation <= ymax,]$rxwaveform
+  qts=quantile(wf_interest, c(0.05, 1), type=1)
+
+
+  z_masked = rev(wf_between$elevation)
+
+
+  ticks = seq(min_z, max_z, length=4)
+  ticks_label = format(ticks-min_z, digits = 2)
+
+  rh_closest_en = list()
+  for (i in 1:length(rh_z)) {
+    absdiff_rh = abs(z_masked-rh_z[[i]])
+    rh_closest_en[[names(rh_z)[[i]]]] = which(absdiff_rh==min(abs(absdiff_rh)))
+  }
+
+  # Make marks for RH based in a point
+  mark = function(x, y, ...) {
+    arrows(x, y, x, min_z, length=.1, code = 3)
+  }
+
+  # Find mid y for rh labels
+  ymidpoint = function(x) {
+    x-(x-min_z)/2
+  }
+
+
+  plot(wf, relative=FALSE, polygon=TRUE, type="l", lwd=2, col="forestgreen",
+       xlab="Waveform Amplitude", ylab="Elevation (m)", ylim=c(ymin, ymax), xlim=qts+c(0, 0.1*abs(diff(qts))), ...)
+  par(new=TRUE)
+  plot(energy_cum_normalized, z_masked, lwd=2, axes=F, bty="n", type="l", xlab = "", ylab = "", ylim=c(ymin, ymax), xlim=qts)
+  axis(side=4, at = ticks, labels=ticks_label)
+  mtext("Height (m)", side=4, line=2)
+  for (i in 2:(length(rh_z)-1)) {
+    mark(energy_cum_normalized[rh_closest_en[[i]]], rh_z[[i]])
+    text(energy_cum_normalized[rh_closest_en[[i]]], ymidpoint(rh_z[[i]]), toupper(names(rh_z)[[i]]), pos = 2)
+  }
+  text(qts[2]-diff(qts)/2, rh_z[[length(rh_z)]], "RH100", pos=3)
+  abline(rh_z[[length(rh_z)]], 0, lty="dashed")
+  text(qts[2]-diff(qts)/2, rh_z[[1]], "RH0", pos=1)
+  abline(rh_z[[1]], 0, lty="dashed")
+```
+
+
+
+SECTION 4: Create Raster
+
 
 
