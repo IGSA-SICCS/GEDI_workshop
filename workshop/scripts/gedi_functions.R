@@ -1433,6 +1433,51 @@ getLevel1BWF<-function(level1b,shot_number){
   }
 }
 
+getLevel2AM<-function(level2a){
+  level2a<-level2a@h5
+  groups_id<-grep("BEAM\\d{4}$",gsub("/","",
+                                     hdf5r::list.groups(level2a, recursive = F)), value = T)
+  rh.dt<-data.table::data.table()
+  pb <- utils::txtProgressBar(min = 0, max = length(groups_id), style = 3)
+  i.s=0
+  
+  for ( i in groups_id){
+    i.s<-i.s+1
+    utils::setTxtProgressBar(pb, i.s)
+    level2a_i<-level2a[[i]]
+    
+    if (any(hdf5r::list.datasets(level2a_i)=="shot_number")){
+      
+      if(length(level2a_i[["rh"]]$dims)==2) {
+        rh=t(level2a_i[["rh"]][,])
+      } else {
+        rh=t(level2a_i[["rh"]][])
+      }
+      
+      rhs<-data.table::data.table(
+        beam<-rep(i,length(level2a_i[["shot_number"]][])),
+        shot_number=level2a_i[["shot_number"]][],
+        degrade_flag=level2a_i[["degrade_flag"]][],
+        quality_flag=level2a_i[["quality_flag"]][],
+        quality_flag=level2a_i[["delta_time"]][],
+        sensitivity=level2a_i[["sensitivity"]][],
+        solar_elevation=level2a_i[["solar_elevation"]][],
+        lat_lowestmode=level2a_i[["lat_lowestmode"]][],
+        lon_lowestmode=level2a_i[["lon_lowestmode"]][],
+        elev_highestreturn=level2a_i[["elev_highestreturn"]][],
+        elev_lowestmode=level2a_i[["elev_lowestmode"]][],
+        rh)
+      rh.dt<-rbind(rh.dt,rhs)
+    }
+  }
+  
+  colnames(rh.dt)<-c("beam","shot_number","degrade_flag","quality_flag","delta_time",
+                     "sensitivity","solar_elevation","lat_lowestmode","lon_lowestmode",
+                     "elev_highestreturn","elev_lowestmode",paste0("rh",seq(0,100)))
+  close(pb)
+  return(rh.dt)
+}
+
 plotWFMetrics = function(level1b, level2a, shot_number, rh=c(25, 50, 75), ...) {
   # Avoid NOTEs from checking
   elevation = NULL
@@ -1520,3 +1565,689 @@ plotWFMetrics = function(level1b, level2a, shot_number, rh=c(25, 50, 75), ...) {
   
 }
 
+gediWFMetrics = function(
+    input,
+    outRoot,
+    writeFit = FALSE,
+    writeGauss = FALSE,
+    bounds = NULL,
+    # beamList = NULL,
+    # skipBeams = NULL,
+    # readBeams = NULL,
+    ground = FALSE,
+    useInt = FALSE,
+    useFrac = FALSE,
+    rhRes = 5.0,
+    laiRes = 10.0,
+    laiH = 30.0,
+    noRHgauss = FALSE,
+    gTol = 0.0,
+    fhdHistRes = 0.001,
+    forcePsigma = FALSE,
+    bayesGround = FALSE,
+    dontTrustGround = FALSE,
+    noRoundCoord = FALSE,
+    noCanopy = FALSE,
+    dcBias = 0.0,
+    nSig = 0.0,
+    hNoise = 0.0,
+    linkNoise = NULL,
+    linkFsig = NULL,
+    linkPsig = NULL,
+    trueSig = NULL,
+    bitRate = NULL,
+    maxDN = NULL,
+    renoise = FALSE,
+    newPsig = -1.0,
+    oldPsig = 0.764331,
+    addDrift = NULL,
+    missGround = FALSE,
+    minGap = NULL,
+    photonCount = FALSE,
+    pcl = FALSE,
+    nPhotons = 2.1,
+    photonWind = 200.0,
+    noiseMult = 0.1,
+    rhoVrhoG = 1.0,
+    nPhotC = 2.1,
+    nPhotG = -1.0,
+    photHDF = FALSE,
+    meanN = 0.0,
+    thresh = 0.00000000000001,
+    varNoise = FALSE,
+    varScale = NULL,
+    statsLen = NULL,
+    noiseTrack = FALSE,
+    sWidth = NULL,
+    psWidth = 0.0,
+    msWidth = NULL,
+    preMatchF = FALSE,
+    postMatchF = FALSE,
+    pFile = NULL,
+    gWidth = 1.2,
+    minGsig = 0.764331,
+    minWidth = 0.0,
+    medNoise = FALSE,
+    varDrift = NULL,
+    driftFac = NULL,
+    rhoG = 0.4,
+    rhoC = 0.57,
+    pSigma = NULL,
+    gold = FALSE,
+    deconTol = NULL) {
+  readBinLVIS = FALSE
+  readHDFlvis = FALSE
+  readHDFgedi = TRUE
+  level2 = NULL
+  beamList = NULL
+  skipBeams = NULL
+  readBeams = NULL
+  ground = FALSE
+  
+  stopifnotMessage(
+    "Input file is not gedi.level1bSim or list"=class(input) == "gedi.level1bSim" ||
+      all(sapply(input, class) == "gedi.level1bSim"),
+    "outRoot is not a valida path!"=checkParentDir(outRoot, optional=FALSE),
+    "writeFit is invalid!"=checkLogical(writeFit),
+    "writeGauss is invalid!"=checkLogical(writeGauss),
+    "bounds is invalid!"=checkNumericLength(bounds, 4),
+    "useInt is invalid!"=checkLogical(useInt),
+    "useFrac is invalid!"=checkLogical(useFrac),
+    "laiRes is invalid!"=checkNumeric(laiRes),
+    "laiH is invalid!"=checkNumeric(laiH),
+    "noRHgauss is invalid!"=checkLogical(noRHgauss),
+    "gTol is invalid!"=checkNumeric(gTol),
+    "fhdHistRes is invalid!"=checkNumeric(fhdHistRes),
+    "forcePsigma is invalid!"=checkLogical(forcePsigma),
+    "bayesGround is invalid!"=checkLogical(bayesGround),
+    "dontTrustGround is invalid!"=checkLogical(dontTrustGround),
+    "noRoundCoord is invalid!"=checkLogical(noRoundCoord),
+    "noCanopy is invalid!"=checkLogical(noCanopy),
+    "dcBias is invalid!"=checkNumeric(dcBias),
+    "nSig is invalid!"=checkNumeric(nSig),
+    "hNoise is invalid!"=checkNumeric(hNoise),
+    "linkNoise is invalid!"=checkNumericLength(linkNoise, 2),
+    "linkFsig is invalid!"=checkNumeric(linkFsig),
+    "linkPsig is invalid!"=checkNumeric(linkPsig),
+    "trueSig is invalid!"=checkNumeric(trueSig),
+    "bitRate is invalid!"=checkInteger(bitRate),
+    "maxDN is invalid!"=checkNumeric(maxDN),
+    "renoise is invalid!"=checkLogical(renoise),
+    "newPsig is invalid!"=checkNumeric(newPsig),
+    "oldPsig is invalid!"=checkNumeric(oldPsig),
+    "addDrift is invalid!"=checkNumeric(addDrift),
+    "missGround is invalid!"=checkLogical(missGround),
+    "minGap is invalid!"=checkLogical(minGap),
+    "photonCount is invalid!"=checkLogical(photonCount),
+    "pcl is invalid!"=checkLogical(pcl),
+    "nPhotons is invalid!"=checkNumeric(nPhotons),
+    "photonWind is invalid!"=checkNumeric(photonWind),
+    "noiseMult is invalid!"=checkNumeric(noiseMult),
+    "rhoVrhoG is invalid!"=checkNumeric(rhoVrhoG),
+    "nPhotC is invalid!"=checkNumeric(nPhotC),
+    "nPhotG is invalid!"=checkNumeric(nPhotG),
+    "photHDF is invalid!"=checkLogical(photHDF),
+    "meanN is invalid!"=checkNumeric(meanN),
+    "thresh is invalid!"=checkNumeric(thresh),
+    "varNoise is invalid!"=checkLogical(varNoise),
+    "varScale is invalid!"=checkNumeric(varScale),
+    "statsLen is invalid!"=checkNumeric(statsLen),
+    "noiseTrack is invalid!"=checkLogical(noiseTrack),
+    "sWidth is invalid!"=checkNumeric(sWidth),
+    "psWidth is invalid!"=checkNumeric(psWidth),
+    "msWidth is invalid!"=checkNumeric(msWidth),
+    "preMatchF is invalid!"=checkLogical(preMatchF),
+    "postMatchF is invalid!"=checkLogical(postMatchF),
+    "pFile is invalid!"=checkFilepath(pFile, newFile=FALSE, optional=TRUE),
+    "gWidth is invalid!"=checkNumeric(gWidth),
+    "minGsig is invalid!"=checkNumeric(minGsig),
+    "minWidth is invalid!"=checkNumeric(minWidth),
+    "medNoise is invalid!"=checkLogical(medNoise),
+    "varDrift is invalid!"=checkLogical(varDrift),
+    "driftFac is invalid!"=checkNumeric(driftFac),
+    "rhoG is invalid!"=checkNumeric(rhoG),
+    "rhoC is invalid!"=checkNumeric(rhoC),
+    "pSigma is invalid!"=checkNumeric(pSigma),
+    "gold is invalid!"=checkLogical(gold),
+    "deconTol is invalid!"=checkNumeric(deconTol)
+  )
+  
+  inputInList = list(NULL, NULL)
+  if (class(input)=="list") {
+    files = sapply(input, function(x) {
+      close(x)
+      return (x@h5$filename)
+    })
+    inList = tempfile(fileext=".txt")
+    fileHandle = file(inList, "w")
+    writeLines(files, fileHandle)
+    close(fileHandle)
+    inputInList[[2]] = inList
+  } else {
+    close(input)
+    inputInList[[1]] = input@h5$filename
+  }
+  
+  
+  res = .Call("C_gediMetrics",
+              # Input output
+              inputInList[[1]],
+              outRoot,
+              inputInList[[2]],
+              writeFit,
+              writeGauss,
+              readBinLVIS,
+              readHDFlvis,
+              readHDFgedi,
+              level2,
+              bounds,
+              beamList,
+              skipBeams,
+              readBeams,
+              
+              # Switches
+              ground,
+              useInt,
+              useFrac,
+              rhRes,
+              laiRes,
+              laiH,
+              noRHgauss,
+              gTol,
+              fhdHistRes,
+              forcePsigma,
+              bayesGround,
+              dontTrustGround,
+              noRoundCoord,
+              noCanopy,
+              
+              # Adding noise
+              dcBias,
+              nSig,
+              NULL,
+              hNoise,
+              linkNoise,
+              linkFsig,
+              linkPsig,
+              trueSig,
+              bitRate,
+              maxDN,
+              renoise,
+              newPsig,
+              oldPsig,
+              addDrift,
+              missGround,
+              minGap,
+              
+              # Photon Counting
+              photonCount,
+              pcl,
+              nPhotons,
+              photonWind,
+              noiseMult,
+              rhoVrhoG,
+              nPhotC,
+              nPhotG,
+              photHDF,
+              
+              # Denoising
+              meanN,
+              thresh,
+              varNoise,
+              varScale,
+              statsLen,
+              noiseTrack,
+              sWidth,
+              psWidth,
+              msWidth,
+              preMatchF,
+              postMatchF,
+              pFile,
+              list(gWidth,
+                   minGsig,
+                   minWidth,
+                   medNoise,
+                   varDrift,
+                   driftFac,
+                   rhoG,
+                   rhoC,
+                   pSigma,
+                   gold,
+                   deconTol))
+  unloadLibrary()
+  cleanInList(inputInList)
+  
+  if (res==0) {
+    output = fs::path_ext_set(outRoot, ".metric.txt")
+    header = read.csv(output, sep=",", nrow=1, header = FALSE, as.is=TRUE)
+    header=gsub("#? *\\d+ *([^,]*)", "\\1", header)
+    header=header[header!="NA"]
+    metricData = read.csv(output, sep=" ", skip=1, na.strings = "?", header = FALSE)
+    if (ncol(metricData) == length(header)) {
+      names(metricData) = header
+    } else {
+      diff = ncol(metricData) - length(header)
+      metricData = metricData[,-c(99:(99+diff-1))]
+      metricData[,98] = outRoot
+      names(metricData) = header }
+  }
+  
+  if (class(input)=="list") {
+    files = sapply(input, function(x) {
+      x@h5 = hdf5r::H5File$new(x@h5$filename, mode="r")
+    })
+  } else {
+    input@h5 = hdf5r::H5File$new(input@h5$filename, mode="r")
+  }
+  
+  return (metricData)
+}
+
+getLevel2BVPM<-function(level2b){
+  level2b<-level2b@h5
+  groups_id<-grep("BEAM\\d{4}$",gsub("/","",
+                                     hdf5r::list.groups(level2b, recursive = F)), value = T)
+  m.dt<-data.table::data.table()
+  pb <- utils::txtProgressBar(min = 0, max = length(groups_id), style = 3)
+  i.s=0
+  var.map = data.table::data.table(t(data.frame(list(
+    # COL_NAMES              # H5_ADDRESS
+    c("shot_number",         "shot_number"),
+    c("algorithmrun_flag",   "algorithmrun_flag"),
+    c("l2b_quality_flag",    "l2b_quality_flag"),
+    c("delta_time",          "geolocation/delta_time"),
+    c("sensitivity",         "sensitivity"),
+    c("solar_elevation",     "geolocation/solar_elevation"),
+    c("latitude_lastbin",    "geolocation/latitude_lastbin"),
+    c("latitude_bin0",       "geolocation/latitude_bin0"),
+    c("longitude_bin0",      "geolocation/longitude_bin0"),
+    c("longitude_lastbin",   "geolocation/longitude_lastbin"),
+    c("elev_highestreturn",  "geolocation/elev_highestreturn"),
+    c("elev_lowestmode",     "geolocation/elev_lowestmode"),
+    c("rh100",               "rh100"),
+    c("pai",                 "pai"),
+    c("fhd_normal",          "fhd_normal"),
+    c("omega",               "omega"),
+    c("pgap_theta",          "pgap_theta"),
+    c("cover",               "cover")
+  ))))
+  colnames(var.map) = c("COL_NAMES", "H5_ADDRESS")
+  
+  for ( i in groups_id){
+    i.s<-i.s+1
+    utils::setTxtProgressBar(pb, i.s)
+    level2b_i<-level2b[[i]]
+    m<-data.table::data.table(
+      beam=rep(i,length(level2b_i[["shot_number"]][])))
+    for (row_index in 1:nrow(var.map)) {
+      colname = var.map$COL_NAMES[row_index]
+      h5.address = var.map$H5_ADDRESS[row_index]
+      m[[colname]] <- level2b_i[[h5.address]][]
+    }
+    m.dt<-rbind(m.dt,m)
+  }
+  colnames(m.dt)<-c("beam", var.map$COL_NAMES)
+  close(pb)
+  return(m.dt)
+}
+
+getLevel2BPAIProfile<-function(level2b){
+  level2b<-level2b@h5
+  groups_id<-grep("BEAM\\d{4}$",gsub("/","",
+                                     hdf5r::list.groups(level2b, recursive = F)), value = T)
+  m.dt<-data.table::data.table()
+  pb <- utils::txtProgressBar(min = 0, max = length(groups_id), style = 3)
+  i.s=0
+  for ( i in groups_id){
+    i.s<-i.s+1
+    utils::setTxtProgressBar(pb, i.s)
+    level2b_i<-level2b[[i]]
+    m<-data.table::data.table(
+      beam<-rep(i,length(level2b_i[["shot_number"]][])),
+      shot_number=level2b_i[["shot_number"]][],
+      algorithmrun_flag=level2b_i[["algorithmrun_flag"]][],
+      l2b_quality_flag=level2b_i[["l2b_quality_flag"]][],
+      delta_time=level2b_i[["geolocation/delta_time"]][],
+      lat_lowestmode=level2b_i[["geolocation/lat_lowestmode"]][],
+      lon_lowestmode=level2b_i[["geolocation/lon_lowestmode"]][],
+      elev_highestreturn=level2b_i[["geolocation/elev_highestreturn"]][],
+      elev_lowestmode=level2b_i[["geolocation/elev_lowestmode"]][],
+      height_lastbin=level2b_i[["geolocation/height_lastbin"]][],
+      height_bin0=level2b_i[["geolocation/height_bin0"]][],
+      pai_z=t(level2b_i[["pai_z"]][,1:level2b_i[["pai_z"]]$dims[2]]))
+    m.dt<-rbind(m.dt,m)
+  }
+  colnames(m.dt)<-c("beam","shot_number","algorithmrun_flag",
+                    "l2b_quality_flag","delta_time","lat_lowestmode",
+                    "lon_lowestmode","elev_highestreturn",
+                    "elev_lowestmode","height_lastbin",
+                    "height_bin0",paste0("pai_z",seq(0,30*5,5)[-31],"_",seq(5,30*5,5),"m"))
+  close(pb)
+  return(m.dt)
+}
+
+getLevel2BPAVDProfile<-function(level2b){
+  level2b<-level2b@h5
+  groups_id<-grep("BEAM\\d{4}$",gsub("/","",
+                                     hdf5r::list.groups(level2b, recursive = F)), value = T)
+  m.dt<-data.table::data.table()
+  pb <- utils::txtProgressBar(min = 0, max = length(groups_id), style = 3)
+  i.s=0
+  for ( i in groups_id){
+    i.s<-i.s+1
+    utils::setTxtProgressBar(pb, i.s)
+    level2b_i<-level2b[[i]]
+    m<-data.table::data.table(
+      beam<-rep(i,length(level2b_i[["shot_number"]][])),
+      shot_number=level2b_i[["shot_number"]][],
+      algorithmrun_flag=level2b_i[["algorithmrun_flag"]][],
+      l2b_quality_flag=level2b_i[["l2b_quality_flag"]][],
+      delta_time=level2b_i[["geolocation/delta_time"]][],
+      lat_lowestmode=level2b_i[["geolocation/lat_lowestmode"]][],
+      lon_lowestmode=level2b_i[["geolocation/lon_lowestmode"]][],
+      elev_highestreturn=level2b_i[["geolocation/elev_highestreturn"]][],
+      elev_lowestmode=level2b_i[["geolocation/elev_lowestmode"]][],
+      height_lastbin=level2b_i[["geolocation/height_lastbin"]][],
+      height_bin0=level2b_i[["geolocation/height_bin0"]][],
+      pavd_z=t(level2b_i[["pavd_z"]][,1:level2b_i[["pavd_z"]]$dims[2]]))
+    m.dt<-rbind(m.dt,m)
+  }
+  colnames(m.dt)<-c("beam","shot_number","algorithmrun_flag",
+                    "l2b_quality_flag","delta_time","lat_lowestmode",
+                    "lon_lowestmode","elev_highestreturn",
+                    "elev_lowestmode","height_lastbin",
+                    "height_bin0",paste0("pavd_z",seq(0,30*5,5)[-31],"_",seq(5,30*5,5),"m"))
+  close(pb)
+  return(m.dt)
+}
+
+plotPAIProfile<-function(level2BPAIProfile, beam="BEAM0101", elev=TRUE){
+  #require(ggplot2)
+  
+  rids<-1:nrow(level2BPAIProfile)
+  rids<-rids[level2BPAIProfile$beam==beam]
+  level2BPAIProfile_sub<-level2BPAIProfile[rids,]
+  level2BPAIProfile_sub$height_bin0[level2BPAIProfile_sub$height_bin0<0]<-0
+  
+  n0<-nrow(level2BPAIProfile_sub)
+  dft<-data.table::melt(level2BPAIProfile_sub[,c(2,6,8,9:38)], id.vars=c("shot_number","elev_lowestmode", "height_bin0"), variable.name="pai", value.name="value")
+  dft$rowids<-rep(1:n0,30)
+  df <- as.data.frame(lapply(dft, rep, rep(5,nrow(dft))))
+  n<-nrow(df)
+  seqs<-seq(0,150,5)
+  hids<-NULL
+  for ( i in 1:30){
+    hids<-c(hids,rep(seq(seqs[i]+1,seqs[i+1]),n0))
+  }
+  df$value[df$value<0]<-0
+  df$hids<-hids
+  #df<-df[df$value>0,]
+  
+  if( elev==TRUE){
+    dif<-(df$elev_lowestmode+df$height_bin0) - (df$hids+df$elev_lowestmode)
+    df<-df[dif>0,]
+    xp<-((df$rowids*60)-60)/1000
+    yp<-round(df$elev_lowestmode+df$hids)
+    
+    xsl<-unique(xp)
+    yl1<-tapply(yp,df$rowids,max) +0.5
+    yl2<-tapply(yp,df$rowids,min) -0.5
+    
+    
+    #xsl<-((1:nrow(level2BPAIProfile_sub)*60)-60)/1000
+    #yl1<-round(level2BPAIProfile_sub$height_bin0+level2BPAIProfile_sub$elev_lowestmode)
+    #yl2<-round(level2BPAIProfile_sub$elev_lowestmode)
+    
+    gg <- ggplot2::ggplot()+
+      geom_tile(aes(x=xp, y=yp,fill= df$value))+
+      scale_fill_gradientn(colours = brewer.pal(n = 8, name = "Greens"))+
+      xlab("Distance Along Track (km)") + ylab("Elevation (m)")+
+      geom_line(mapping = aes(x = xsl,y=yl1, color = "Canopy \nTop Height (m)"))+#,size=1) +
+      geom_line(mapping = aes(x = xsl,y=yl2, color = "Ground \nElevation (m)"))+#,size=1) +
+      scale_color_manual(name="",values = c("forestgreen", "black"))+
+      theme(panel.border = element_rect(colour = "gray70", fill=NA, size=0.2))+
+      labs(fill=expression(PAI~(m^2/m^2)))+
+      theme(legend.key.height=unit(1, "cm"))
+    
+    print(gg)
+    
+  } else {
+    
+    dif<-df$height_bin0 - df$hids
+    df<-df[dif>0,]
+    xp<-((df$rowids*60)-60)/1000
+    yp<-df$hids-0.5
+    
+    yl<-tapply(df$hids,df$rowids,max)
+    xl<-((unique(df$rowids)*60)-60)/1000
+    
+    #require(ggplot2)
+    gg <- ggplot()+
+      geom_tile(aes(x=xp, y=yp,fill= df$value))+
+      geom_line(mapping = aes(x = xl,y=yl, color = "Canopy \nTop Height (m)"))+#,size=1) +
+      scale_fill_gradientn(colours = brewer.pal(n = 8, name = "Greens"))+
+      xlab("Distance Along Track (km)") + ylab("Height (m)") +
+      theme(panel.border = element_rect(colour = "gray70", fill=NA, size=0.2))+
+      labs(fill=expression(PAI~(m^2/m^2)))+
+      theme(legend.key.height=unit(1, "cm"))+
+      scale_color_manual(name="",values = c("forestgreen", "black"))
+    
+    print(gg)
+  }
+  return(gg)
+}
+
+plotPAVDProfile<-function(level2BPAVDProfile, beam="BEAM0101", elev=TRUE){
+  #require(ggplot2)
+  #require(RColorBrewer)
+  
+  rids<-1:nrow(level2BPAVDProfile)
+  rids<-rids[level2BPAVDProfile$beam==beam]
+  level2BPAVDProfile_sub<-level2BPAVDProfile[rids,]
+  level2BPAVDProfile_sub$height_bin0[level2BPAVDProfile_sub$height_bin0<0]<-0
+  
+  n0<-nrow(level2BPAVDProfile_sub)
+  dft<-data.table::melt(level2BPAVDProfile_sub[,c(2,6,8,9:38)], id.vars=c("shot_number","elev_lowestmode", "height_bin0"), variable.name="pavd", value.name="value")
+  dft$rowids<-rep(1:n0,30)
+  df <- as.data.frame(lapply(dft, rep, rep(5,nrow(dft))))
+  n<-nrow(df)
+  seqs<-seq(0,150,5)
+  hids<-NULL
+  for ( i in 1:30){
+    hids<-c(hids,rep(seq(seqs[i]+1,seqs[i+1]),n0))
+  }
+  df$value[df$value<0]<-0
+  df$hids<-hids
+  #df<-df[df$value>0,]
+  
+  if( elev==TRUE){
+    dif<-(df$elev_lowestmode+df$height_bin0) - (df$hids+df$elev_lowestmode)
+    df<-df[dif>0,]
+    xp<-((df$rowids*60)-60)/1000
+    yp<-round(df$elev_lowestmode+df$hids)
+    
+    xsl<-unique(xp)
+    yl1<-tapply(yp,df$rowids,max) +0.5
+    yl2<-tapply(yp,df$rowids,min) -0.5
+    
+    
+    #xsl<-((1:nrow(level2BPAVDProfile_sub)*60)-60)/1000
+    #yl1<-round(level2BPAVDProfile_sub$height_bin0+level2BPAVDProfile_sub$elev_lowestmode)
+    #yl2<-round(level2BPAVDProfile_sub$elev_lowestmode)
+    
+    gg <- ggplot2::ggplot()+
+      geom_tile(aes(x=xp, y=yp,fill= df$value))+
+      scale_fill_gradientn(colours = brewer.pal(n = 8, name = "Greens"))+
+      xlab("Distance Along Track (km)") + ylab("Elevation (m)")+
+      geom_line(mapping = aes(x = xsl,y=yl1, color = "Canopy \nTop Height (m)"))+#,size=1) +
+      geom_line(mapping = aes(x = xsl,y=yl2, color = "Ground \nElevation (m)"))+#,size=1) +
+      scale_color_manual(name="",values = c("forestgreen", "black"))+
+      theme(panel.border = element_rect(colour = "gray70", fill=NA, size=0.2))+
+      labs(fill=expression(PAVD~(m^2/m^3)))+
+      theme(legend.key.height=unit(1, "cm"))
+    
+    print(gg)
+    
+  } else {
+    
+    dif<-df$height_bin0 - df$hids
+    df<-df[dif>0,]
+    xp<-((df$rowids*60)-60)/1000
+    yp<-df$hids-0.5
+    
+    yl<-tapply(df$hids,df$rowids,max)#+0.5
+    xl<-((unique(df$rowids)*60)-60)/1000
+    
+    #xl<-((1:nrow(level2BPAVDProfile_sub)*60)-60)/1000
+    #yl<-round(level2BPAVDProfile_sub$height_bin0)
+    
+    gg <- ggplot()+
+      geom_tile(aes(x=xp, y=yp,fill= df$value))+
+      geom_line(mapping = aes(x = xl,y=yl, color = "Canopy \nTop Height (m)"))+#,size=1) +
+      scale_fill_gradientn(colours = brewer.pal(n = 8, name = "Greens"))+
+      xlab("Distance Along Track (km)") + ylab("Height (m)") +
+      theme(panel.border = element_rect(colour = "gray70", fill=NA, size=0.2))+
+      labs(fill=expression(PAVD~(m^2/m^3)))+
+      theme(legend.key.height=unit(1, "cm"))+
+      scale_color_manual(name="",values = c("forestgreen", "black"))
+    
+    print(gg)
+  }
+  return(gg)
+}
+
+SetOfMetrics = function(x)
+{
+  metrics = list(
+    min =min(x), # Min of x
+    max = max(x), # Max of x
+    mean = mean(x), # Mean of x
+    sd = sd(x)# Sd of x
+  )
+  return(metrics)
+}
+
+polyStatsLevel2AM = function(level2AM, func, id = NULL)
+{
+  
+  # this code has been adapted from the grid_metrics function in lidR package (Roussel et al. 2019)
+  # https://github.com/Jean-Romain/lidR/blob/master/R/grid_metrics.r
+  
+  requireNamespace("data.table")
+  
+  is_formula <- tryCatch(lazyeval::is_formula(func), error = function(e) FALSE)
+  if (!is_formula) func <- lazyeval::f_capture(func)
+  
+  # Add data.table operator
+  `:=` <- data.table::`:=`
+  
+  func<- lazyeval::f_interp(func)
+  call<- lazyeval::as_call(func)
+  
+  if ( is.null(id)) {
+    metrics   <- with(level2AM, level2AM[, c(eval(call))])
+    metrics<-data.table::data.table(metrics)
+    if (ncol(metrics) < 2) {
+      colnames(metrics)<-paste0(call)[1]
+    }
+  } else {
+    metrics   <- with(level2AM, level2AM[, c(eval(call)), by = id])
+    if (ncol(metrics) < 3) {
+      colnames(metrics)[2]<-paste0(call)[1]
+    }
+  }
+  
+  return(metrics)
+}
+
+polyStatsLevel2BVPM = function(level2BVPM, func, id = NULL)
+{
+  # this code has been adapted from the grid_metrics function in lidR package (Roussel et al. 2019)
+  # https://github.com/Jean-Romain/lidR/blob/master/R/grid_metrics.r
+  
+  is_formula <- tryCatch(lazyeval::is_formula(func), error = function(e) FALSE)
+  if (!is_formula) func <- lazyeval::f_capture(func)
+  
+  # Add data.table operator
+  `:=` <- data.table::`:=`
+  
+  func<- lazyeval::f_interp(func)
+  call<- lazyeval::as_call(func)
+  
+  if ( is.null(id)) {
+    metrics   <- with(level2BVPM, level2BVPM[, c(eval(call))])
+    metrics<-data.table::data.table(metrics)
+    if (ncol(metrics) < 2) {
+      colnames(metrics)<-paste0(call)[1]
+    }
+  } else {
+    metrics   <- with(level2BVPM, level2BVPM[, c(eval(call)), by = id])
+    if (ncol(metrics) < 3) {
+      colnames(metrics)[2]<-paste0(call)[1]
+    }
+  }
+  
+  return(metrics)
+}
+
+gridStatsLevel2AM = function(level2AM, func, res = 0.5)
+{
+  requireNamespace("data.table")
+  # this code has been adapted from the grid_metrics function in lidR package (Roussel et al. 2019)
+  # https://github.com/Jean-Romain/lidR/blob/master/R/grid_metrics.r
+  
+  is_formula <- tryCatch(lazyeval::is_formula(func), error = function(e) FALSE)
+  if (!is_formula) func <- lazyeval::f_capture(func)
+  
+  # Add data.table operator
+  `:=` <- data.table::`:=`
+  func<-lazyeval::f_interp(func)
+  vars<-all.names(func)[3:length(all.names(func))]
+  level2AM.dt <- level2AM[,names(level2AM) %in% c("lon_lowestmode","lat_lowestmode",vars), with=FALSE]
+  level2AM.dt<-setNames(level2AM.dt,c("y","x",vars))
+  layout    <- raster::raster(raster::extent(level2AM.dt), res=res)
+  call      <- lazyeval::as_call(func)
+  cells     <- raster::cellFromXY(layout, na.omit(level2AM.dt[,2:1]))
+  metrics   <- with(level2AM.dt, level2AM.dt[,eval(call), by = cells])
+  xy_coords <- raster::xyFromCell(layout, metrics[[1]])
+  metrics[, cells := NULL]
+  output.dt<-na.omit(cbind(xy_coords,metrics))
+  output <- sp::SpatialPixelsDataFrame(output.dt[,1:2], output.dt[,-c(1:2)])#, proj4string = level2AM.dt@proj4string)
+  if (names(metrics)[1]=="V1") {
+    names(output)<-all.names(func)[2]
+  } else {names(output) <- names(metrics)}
+  if (length(names(metrics)) > 1 ) {output<-raster::brick(output)} else {output<-raster::raster(output)}
+  rm(level2AM.dt)
+  return(output)
+}
+
+gridStatsLevel2BVPM = function(level2BVPM, func, res)
+{
+  requireNamespace("data.table")
+  # this code has been adapted from the grid_metrics function in lidR package (Roussel et al. 2019)
+  # https://github.com/Jean-Romain/lidR/blob/master/R/grid_metrics.r
+  
+  is_formula <- tryCatch(lazyeval::is_formula(func), error = function(e) FALSE)
+  if (!is_formula) func <- lazyeval::f_capture(func)
+  
+  # Add data.table operator
+  `:=` <- data.table::`:=`
+  func<-lazyeval::f_interp(func)
+  vars<-all.names(func)[3:length(all.names(func))]
+  level2b.dt <- na.omit(level2BVPM[,names(level2BVPM) %in% c("longitude_lastbin","latitude_lastbin",vars), with=FALSE])
+  level2b.dt<-setNames(level2b.dt,c("y","x",vars))
+  layout    <- raster::raster(raster::extent(level2b.dt), res=res)
+  call      <- lazyeval::as_call(func)
+  cells     <- raster::cellFromXY(layout, na.omit(level2b.dt[,2:1]))
+  metrics   <- with(level2b.dt, level2b.dt[,eval(call), by = cells])
+  xy_coords <- raster::xyFromCell(layout, metrics[[1]])
+  metrics[, cells := NULL]
+  output.dt<-na.omit(cbind(xy_coords,metrics))
+  output <- sp::SpatialPixelsDataFrame(output.dt[,1:2], output.dt[,-c(1:2)])#, proj4string = level2b.dt@proj4string)
+  if (names(metrics)[1]=="V1") {
+    names(output)<-all.names(func)[2]
+  } else {names(output) <- names(metrics)}
+  if (length(names(metrics)) > 1 ) {output<-raster::brick(output)} else {output<-raster::raster(output)}
+  rm(level2b.dt)
+  return(output)
+}
