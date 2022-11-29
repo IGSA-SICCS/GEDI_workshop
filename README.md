@@ -1,7 +1,8 @@
 # GEDI workshop
 
 <!-- badges: start -->
-[![Launch Rstudio Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/IGSA-SICCS/GEDI_workshop/main?urlpath=rstudio){:target="_blank"}
+[![Launch Rstudio Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/IGSA-SICCS/GEDI_workshop/main?urlpath=rstudio){target="_blank"}
+
 <!-- badges: end -->
 
 ## Studying forest structure from space: An introduction to GEDI lidar data pre-processing and analysis in ecological applications

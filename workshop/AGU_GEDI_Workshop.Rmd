@@ -92,7 +92,7 @@ gL2B <- gedi_temp_filter(gL2B, 'GEDI02_B.002', daterange)
 ```
 
 1.5: Use gedi_download to download GEDI data (DO NOT RUN)
-```{r}
+```{r, eval=FALSE}
 #download data product to their output data directory 
 gedi_download(filepath=gL1B,outdir=gL1B_dir)
 gedi_download(filepath=gL2A,outdir=gL2A_dir)
@@ -102,7 +102,7 @@ gedi_download(filepath=gL2B,outdir=gL2B_dir)
 
 SECTION 2: CLIP GEDI DATA PRODUCTS TO REGION OF INTEREST
 2.1 Read GEDI data (DO NOT RUN)
-```{r}
+```{r, eval=FALSE}
 #read the level 1B, 2A, and 2B for a single orbit
 gedilevel1B <- readLevel1B(level1Bpath = paste0(gL1B_dir,"GEDI01_B_2020160005619_O08428_03_T01337_02_005_01_V002.h5"))
 gedilevel2A <- readLevel2A(level2Apath = paste0(gL2A_dir,"GEDI02_A_2020160005619_O08428_03_T01337_02_003_01_V002.h5"))
@@ -110,7 +110,7 @@ gedilevel2B <- readLevel2B(level2Bpath = paste0(gL2B_dir,"GEDI02_B_2020160005619
 ```
 
 2.2 Clip data within bbox coordinates (DO NOT RUN)
-```{r}
+```{r, eval=FALSE}
 gedilevel1B <- clipLevel1B(gedilevel1B, ll_lon, ur_lon, ll_lat, ur_lat,
                                 output = paste0(gL1B_dir,"GEDI01_B_2020160005619_O08428_03_T01337_02_005_01_V002_clip.h5"))
 gedilevel2A <- clipLevel2A(gedilevel2A, ll_lon, ur_lon, ll_lat, ur_lat, 
