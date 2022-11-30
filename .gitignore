@@ -9,3 +9,7 @@
 .DS_Store
 
 # Suppress large file folders (temp)
+
+
+# Suppress Mac-specific folders
+/workshop/GEDI_workshop_walkthrough.Rmd
