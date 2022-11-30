@@ -20,10 +20,10 @@ The purpose of this workshop is to assist interested Ecologists, Biologists, and
 
 ## How to use this repository
 
-# 1. Presentation
+### 1. Presentation
 The presentation contains (1) a summary of workshop goals and expected outcomes, (2) an overview of the GEDI instrument, data types, and data products, (3) examples of GEDI data applications in biological and ecological research, and (4) instructions for using the rGEDI package API to download data in R
 
-# 2. Scripts
+### 2. Scripts
 The scripts for workshop can be launched from the binder (badge above). Binder is an open-source web service which hosts interactive and reproducible environments. You do not need to install any programs or dependencies to use this.
 If you prefer, you can also run workshop scripts in Rstudio. AGU_GEDI_Workshop.Rmd contains the workflow.
 
@@ -32,7 +32,7 @@ Section 2: How to filter and clip GEDI data products to your region of interest 
 Section 3: How to visualize GEDI data including waveforms, height metrics, and derived indices
 Section 4: How to compute descriptive statistics and create raster layers from GEDI footprints
 
-# 3. Data
+### 3. Data
 We provide small sample datasets which are compatible with the scripts. These allow users to use the scripts without waiting for data download (a significant commitment).
 
-## Additional resources 
+## Additional resources
