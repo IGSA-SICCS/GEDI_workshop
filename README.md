@@ -1,5 +1,6 @@
 # GEDI workshop
 
+To launch the interactive coding environment:
 <!-- badges: start -->
 [![Launch Rstudio Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/IGSA-SICCS/GEDI_workshop/main?urlpath=rstudio)
 <!-- badges: end -->
