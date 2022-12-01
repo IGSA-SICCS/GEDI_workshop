@@ -5,26 +5,28 @@ date: '2022-11-21'
 output: html_document
 ---
 
-SECTION 0: PREPARE R ENVIRONMENT
+## SECTION 0: PREPARE R ENVIRONMENT
 0.1: Libraries
+
 ```{r, warning=FALSE, message=FALSE}
-#define which libraries to use
-library(raster)   
-library(devtools) 
-library(sf) 
-library(sp)
-library(data.table)
-library(lidR)
-library(httr)
-library(tidyr)
-library(curl)
-library(hdf5r)
-library(leaflet)
-library(leafsync)
-library(ggplot2)
-library(RColorBrewer)
-library(rasterVis)
-library(viridis)
+#Define which libraries to use
+library(raster)       ## spatial tools    
+library(devtools)     ## tools for building and instaling libraries
+library(sf)           ## spatial tools 
+library(sp)           ## spatial tools
+library(data.table)   ## data / table manipulation
+library(lidR)         ## lidar manipulation tools
+library(httr)         ## methods for web files interaction 
+library(tidyr)        ## data / table manipulation
+library(curl)         ## download files from the web
+library(hdf5r)        ## reading hdf5 files
+library(leaflet)      ## color palettes
+library(leafsync)     ## interactive maps
+library(ggplot2)      ## nice plot tools
+library(rgeos)      ## nice plot tools
+library(RColorBrewer) ## color palettes
+library(rasterVis)    ## raster viz tools
+library(viridis)      ## color palettes
 ```
 
 0.2: Directory and Subdirectories 
@@ -38,16 +40,16 @@ gL2B_dir <- './data/GEDI02_B.002/'
 ```
 
 0.3: Source Scripts
-```{r, warning=FALSE, message=FALSE}
+```{r source, warning=FALSE, message=FALSE}
 #source rGEDI functions in scripts directory
 source('./scripts/gedi_functions.R')
 ```
 
 
-SECTION 1: DOWNLOAD GEDI DATA FOR A REGION OF INTEREST
-1.1: Define region of interest and date range 
+## SECTION 5: DOWNLOAD GEDI DATA FOR A REGION OF INTEREST
+5.1: Define region of interest and date range 
 ```{r}
-#ROI: Columbia
+#ROI: Colombia
 #specify bounding box coordinates for ROI
 ll_lon <- -75  #lower left longitude 
 ll_lat <- 0    #lower left latitude 
@@ -58,10 +60,10 @@ ur_lat <- 1    #upper right latitude
 bbox <- paste(ll_lon, ll_lat, ur_lon, ur_lat, sep = ',')
 
 #specify the date range to filter orbits by
-daterange=c("2020-05-01","2020-07-31")
+daterange <- c("2020-05-01","2020-07-31")
 ```
 
-1.2: Visualize region of interest
+5.2: Visualize region of interest
 ```{r}
 #view footprint locations for entire orbit on map 
 leaflet() %>%
@@ -75,7 +77,7 @@ leaflet() %>%
   addLegend(colors = "grey", labels = "Region of Interest") 
 ```
 
-1.3: Use gedi_finder to find overlapping GEDI orbits 
+5.3: Use gedi_finder to find overlapping GEDI orbits 
 ```{r, warning=FALSE, message=FALSE}
 #create a list of all overlapping orbits for each GEDI data product 
 gL1B <- gedi_finder('GEDI01_B.002', bbox)  
@@ -83,7 +85,7 @@ gL2A <- gedi_finder('GEDI02_A.002', bbox)
 gL2B <- gedi_finder('GEDI02_B.002', bbox)
 ```
 
-1.4 Use gedi_temp_filter to subset orbit list within date range
+5.4 Use gedi_temp_filter to subset orbit list within date range
 ```{r}
 #subset orbit list using daterange
 gL1B <- gedi_temp_filter(gL1B, 'GEDI01_B.002', daterange)
@@ -91,9 +93,10 @@ gL2A <- gedi_temp_filter(gL2A, 'GEDI02_A.002', daterange)
 gL2B <- gedi_temp_filter(gL2B, 'GEDI02_B.002', daterange)
 ```
 
-1.5: Use gedi_download to download GEDI data (DO NOT RUN)
+5.5: Use gedi_download to download GEDI data (DO NOT RUN -- takes a while and we have some files downloades already)
 ```{r, eval=FALSE}
 #download data product to their output data directory 
+#This functions will download heavy files (>1GB each) that can take long time
 gedi_download(filepath=gL1B,outdir=gL1B_dir)
 gedi_download(filepath=gL2A,outdir=gL2A_dir)
 gedi_download(filepath=gL2B,outdir=gL2B_dir)
@@ -120,6 +123,7 @@ gedilevel2B <- clipLevel2B(gedilevel2B, ll_lon, ur_lon, ll_lat, ur_lat,
 ```
 
 ###START HERE###
+Read clipped files into R 
 ```{r}
 gedilevel1B <- readLevel1B(level1Bpath = paste0(gL1B_dir,"GEDI01_B_2020160005619_O08428_03_T01337_02_005_01_V002_clip.h5"))
 gedilevel2A <- readLevel2A(level2Apath = paste0(gL2A_dir,"GEDI02_A_2020160005619_O08428_03_T01337_02_003_01_V002_clip.h5"))
@@ -130,6 +134,7 @@ gedilevel2B <- readLevel2B(level2Bpath = paste0(gL2B_dir,"GEDI02_B_2020160005619
 ```{r}
 #read GEDI L2A data into data.table
 level2AM <- getLevel2AM(gedilevel2A)
+head(level2AM, 3) ## Check the data structure
 dim(level2AM)
 
 #convert shot_number from integer to character
@@ -161,6 +166,9 @@ leaflet() %>%
                    opacity = 0.5,
                    color = "blue", 
                    popup = paste0("shot_number: ", level2AM_qual$shot_number))  %>%
+  setView(median(level2AM_qual$lon_lowestmode),
+          median(level2AM_qual$lat_lowestmode), 
+          zoom = 10) %>%
   addScaleBar(options = list(imperial = FALSE)) %>%
   addProviderTiles(providers$Esri.WorldImagery) %>%
   addLegend(colors = c("grey", "blue", "red"), labels = c("Region of Interest", "Quality GEDI Footprints", "Non-Quality GEDI Footprints"))
@@ -168,9 +176,14 @@ leaflet() %>%
 
 2.4 Select individual footprints along a structurally heterogeneous gradient
 ```{r}
-sample_region <- level2AM_qual[shot_number %in% c("84280500300242755", "84280500300242756", "84280500300242757", "84280500300242758", "84280500300242759")]
+sample_shots <- c("84280500300242755", "84280500300242756", "84280500300242757", "84280500300242758", "84280500300242759")
+sample_region <- level2AM_qual[shot_number %in% sample_shots]
+sample_region$sortid <- 1:nrow(sample_region)
 
 #view footprint in sample region 
+colorRamp <- colorNumeric( palette = "viridis", domain = sample_region$sortid, reverse = TRUE)
+pointColors <- colorRamp(sample_region$sortid)
+
 leaflet() %>%
   addRectangles(
     lng1=min(sample_region$lon_lowestmode)-0.00025, lat1=min(sample_region$lat_lowestmode)-0.00025,
@@ -180,56 +193,85 @@ leaflet() %>%
   addCircleMarkers(sample_region$lon_lowestmode,
                    sample_region$lat_lowestmode,
                    radius = 25,
-                   weight = 2,
+                   weight = 5,
                    fillColor = "transparent",
-                   color = "blue", 
+                   color = pointColors, 
                    popup = paste0("shot_number: ", sample_region$shot_number))  %>%
   addScaleBar(options = list(imperial = FALSE)) %>%
   addProviderTiles(providers$Esri.WorldImagery) %>%
   addLegend(colors = c("grey", "blue"), labels = c("Sample Region", "GEDI Footprints")) 
+```
+Now lets see their vertical profiles
+```{r}
+
+plotVertProfiles <- plot_rh_profiles(sample_region, idcolumn = 'shot_number', col_vector = pointColors)
+
 ```
 
 SECTION 3: Visualize GEDI Data Products 
 3.1 Plot GEDIL1B Full Waveform 
 ```{r}
 #select shot_numbers for different cover types
-shotnum_forest <- "84280500300242756"
+shotnum_forest <- "84280500300242755"
 shotnum_edge <- "84280500300242757"
-shotnum_grass <- "84280500300242758"
+shotnum_grass <- "84280500300242759"
+sample_shotnums <- c(shotnum_forest, shotnum_edge, shotnum_grass)
 
 #get waveform data for each selected footprint
 wf_forest <- getLevel1BWF(gedilevel1B, shot_number=shotnum_forest)
 wf_edge <- getLevel1BWF(gedilevel1B, shot_number=shotnum_edge)
 wf_grass <- getLevel1BWF(gedilevel1B, shot_number=shotnum_grass)
+
+#check shot's data structure
+head(wf_forest@dt)
+
 ```
 
 ```{r}
 #plot raw waveforms
 par(mfrow = c(1,1), mar=c(4,4,1,1), cex.axis = 1.5)
 
-plot(wf_forest, relative=FALSE, polygon=TRUE, type="l", lwd=2, col="blue",
+plot(wf_forest, relative=FALSE, polygon=TRUE, type="l", lwd=2, col="#FDE725",
     xlab="Waveform Amplitude", ylab="Elevation (m)", main="Raw Waveform: Forest", xlim=c(200,500), ylim=c(200,260))
 
-plot(wf_edge, relative=FALSE, polygon=TRUE, type="l", lwd=2, col="blue",
+plot(wf_edge, relative=FALSE, polygon=TRUE, type="l", lwd=2, col="#21908D",
     xlab="Waveform Amplitude", ylab="Elevation (m)", main="Raw Waveform: Edge", xlim=c(200,500), ylim=c(200,260), add = TRUE)
 
-plot(wf_grass, relative=FALSE, polygon=TRUE, type="l", lwd=2, col="blue",
+plot(wf_grass, relative=FALSE, polygon=TRUE, type="l", lwd=2, col="#440154",
     xlab="Waveform Amplitude", ylab="Elevation (m)", main="Raw Waveform: Grass", xlim=c(200,500), ylim=c(200,260), add = TRUE)
 ```
 
 3.2 Plot GEDIL2A Elevation and Height Metrics 
 ```{r}
 #plot waveform with GEDIL2A relative height metrics
-plotWFMetrics(gedilevel1B, gedilevel2A, shotnum_forest, rh=c(25, 50, 75, 90))
+plotWFMetrics(level1b = gedilevel1B, level2a = gedilevel2A, shot_number = shotnum_forest, rh=c(25, 50, 75, 90))
 plotWFMetrics(gedilevel1B, gedilevel2A, shotnum_edge, rh=c(25, 50, 75, 90))
 plotWFMetrics(gedilevel1B, gedilevel2A, shotnum_grass, rh=c(25, 50, 75, 90))
 ```
+Lets use the same elevation range to compare the previous shots
+```{r}
+#plot waveform with GEDIL2A relative height metrics but with a standard scale
+
+plotWFMetrics(gedilevel1B, gedilevel2A, shotnum_forest, rh=c(25, 50, 75, 90), customylim = c(200, 240), main = 'Forest', add = TRUE, colBG = "#FDE725")
+plotWFMetrics(gedilevel1B, gedilevel2A, shotnum_edge, rh=c(25, 50, 75, 90), customylim = c(200, 240), main = 'Edge', add = TRUE, colBG = "#21908D")
+plotWFMetrics(gedilevel1B, gedilevel2A, shotnum_grass, rh=c(25, 50, 75, 90), customylim = c(200, 240), main = 'grass', add = TRUE, colBG = "#440154")
+
+
+```
+
+
 
 3.3 Plot GEDIL2B Plant Area Index (PAI) and Plant Area Volume Density (PAVD)
 ```{r}
 #get canopy cover and vertical profile metrics
 level2BVPM <- getLevel2BVPM(gedilevel2B)
+
+#check the data structure and 3 first values
+head(level2BVPM, 3) 
+
+# check the dimensions
 dim(level2BVPM)
+
 
 #filtering for quality_flag == 1
 level2BVPM <- level2BVPM[l2b_quality_flag == 1]
@@ -253,11 +295,27 @@ dim(level2BPAIProfile)
 #convert shot_number from integer to character
 level2BPAIProfile$shot_number <- paste0(level2BPAIProfile$shot_number)
 
-#plot Level2B PAI Profile
-#gPAIprofile <- plotPAIProfile(level2BPAIProfile, beam="BEAM0101", elev=TRUE)
+
+#select the previous shots to examine their PAI
+smallLevel2BPAIProfile <- level2BPAIProfile[level2BPAIProfile$shot_number %in% sample_shotnums, ]
+sample_colors <- c("#FDE725", "#21908D",  "#440154")
+
+#checking the data structure
+head(smallLevel2BPAIProfile)[, 1:18]
+
+
+#plot some shots
+PAIplot <- plotPAIshots(smallLevel2BPAIProfile, col_vector = sample_colors, cutUntil0 = TRUE, idcolumn = 'shot_number')
+
 ```
 
+
 ```{r}
+#plot Level2B PAI Profile 
+gPAIprofile <- plotPAIProfile(level2BPAIProfile, beam="BEAM0101", elev=TRUE)
+```
+
+```{r PAVD}
 #get pavd profile metrics 
 level2BPAVDProfile <- getLevel2BPAVDProfile(gedilevel2B)
 dim(level2BPAVDProfile)
@@ -266,8 +324,24 @@ dim(level2BPAVDProfile)
 level2BPAVDProfile <- level2BPAVDProfile[l2b_quality_flag == 1]
 dim(level2BPAVDProfile)
 
+#convert shot_number from integer to character
+level2BPAVDProfile$shot_number <- paste0(level2BPAVDProfile$shot_number)
+
+#select the previous shots to examine their PAI
+smallLevel2BPVDProfile <- level2BPAVDProfile[as.character(level2BPAVDProfile$shot_number) %in% sample_shotnums, ]
+sample_colors <- c("#FDE725", "#21908D",  "#440154")
+
+#checking the data structure
+head(smallLevel2BPVDProfile)[, 1:18]
+
+#plot some shots
+PAVDplot <- plotPAVDshots(smallLevel2BPVDProfile, col_vector = sample_colors, cutUntil0 = TRUE, idcolumn = 'shot_number')
+```
+
+
+```{r}
 #plot Level2B PAVD Profile
-#gPAVDprofile<-plotPAVDProfile(level2BPAVDProfile, beam="BEAM0101", elev=TRUE)
+gPAVDprofile<-plotPAVDProfile(level2BPAVDProfile, beam="BEAM0101", elev=TRUE)
 ```
 
 SECTION 4: Create Raster Layers 
@@ -275,21 +349,25 @@ SECTION 4: Create Raster Layers
 ```{r}
 #compute a series of statistics for GEDI relative height metrics 
 rh100metrics_st <- polyStatsLevel2AM(level2AM_qual, func=SetOfMetrics(rh100))
+print(rh100metrics_st) # Check the results
 
 #compute a series of statistics for GEDI canopy cover metrics 
 cover_metrics_st <- polyStatsLevel2BVPM(level2BVPM, func=SetOfMetrics(cover))
+print(cover_metrics_st) # Check the results
+
 ```
 
 4.1 Compute Descriptive Height Stats 
 ```{r}
 #compute a series of statistics for GEDI relative height metrics 
 rh100metrics <- gridStatsLevel2AM(level2AM_qual, func=SetOfMetrics(rh100), res=0.010)
+rh100metrics # the results here are rasters
 ```
 
 ```{r}
 #plot rh100 stats
 rh100maps <- levelplot(rh100metrics,
-                     layout=c(2, 2),
+                     layout=c(4, 1),
                      margin=FALSE,
                      xlab = "Longitude (degree)", ylab = "Latitude (degree)",
                      colorkey=list(
@@ -308,6 +386,44 @@ rh100maps <- levelplot(rh100metrics,
                      names.attr=c("rh100 min","rh100 max","rh100 mean", "rh100 sd"))
 rh100maps
 ```
+```{r}
+#plot rh100 stats over the map
+rh100metrics@crs <- CRS("+proj=longlat +datum=WGS84 +no_defs")
+sample_level2AM_qual <- level2AM_qual[sample(size = 100, nrow(level2AM_qual)), ]
+rhrastvalues <- unique(as.numeric(rh100metrics@data@values))
+rhPal<-  colorNumeric(palette = "viridis", reverse = TRUE,
+                      domain = rhrastvalues, na.color = "transparent")
+
+
+leaflet() %>% addTiles() %>% 
+  
+  addRasterImage(rh100metrics[['mean']], colors = rhPal, opacity = .7, group = "Mean") %>%
+  addRasterImage(rh100metrics[['min']], colors = rhPal, opacity = .7, group = "Min") %>%
+  addRasterImage(rh100metrics[['max']], colors = rhPal, opacity = .7, group = "Max") %>%
+  addRasterImage(rh100metrics[['sd']], colors = rhPal, opacity = .7, group = "SD") %>%
+  
+  
+  addLegend(pal = rhPal, values = rhrastvalues,
+            position = 'topleft',
+            title= ""#, opacity = .3
+            #, labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE))
+  ) %>%
+     addCircleMarkers(data = sample_level2AM_qual, lng = sample_level2AM_qual$lon_lowestmode, 
+                   lat = sample_level2AM_qual$lat_lowestmode,
+                   popup = paste0('RH100:', round(sample_level2AM_qual$rh100, 2),'<br>',
+                                  'Shot:', sample_level2AM_qual$shot_number), 
+                   radius = .2, group = 'GEDI', 
+                   color = ~rhPal(sample_level2AM_qual$rh100))  %>%
+ 
+  addLayersControl(position = 'topleft',
+                   overlayGroups = c('Mean', 'Min', 'Max', 'SD', 'GEDI'),
+                   options = layersControlOptions(collapsed = FALSE),
+                   baseGroups = c("OpenStreetMap", "Esri.WorldImagery")) %>%
+  addProviderTiles( "Esri.WorldImagery", group = "Esri.WorldImagery" )
+
+```
+
+
 
 4.2 Compute Descriptive Canopy Cover Stats 
 ```{r}
@@ -320,7 +436,7 @@ cover_metrics <- gridStatsLevel2BVPM(level2BVPM = level2BVPM, func=SetOfMetrics(
 ```{r}
 #plot pai stats
 pai_maps <- levelplot(pai_metrics,
-                    layout=c(2, 2),
+                    layout=c(4, 1),
                     margin=FALSE,
                     xlab = "Longitude (degree)", ylab = "Latitude (degree)",
                     colorkey=list(
@@ -339,6 +455,42 @@ pai_maps <- levelplot(pai_metrics,
                     names.attr=c("PAI min","PAI max","PAI mean", "PAI sd"))
 pai_maps
 ```
+
+```{r}
+#plot pai stats over the map
+pai_metrics@crs <- CRS("+proj=longlat +datum=WGS84 +no_defs")
+sample_level2BPAI <- level2BPAIProfile[sample(size = 100, nrow(level2BPAIProfile)), ]
+pairastvalues <- unique(as.numeric(pai_metrics@data@values))
+paiPal<-  colorNumeric(palette = "viridis", reverse = TRUE,
+                      domain = pairastvalues, na.color = "transparent")
+
+
+leaflet() %>% addTiles() %>% 
+  addRasterImage(pai_metrics[['mean']], colors = rhPal, opacity = .7, group = "Mean") %>%
+  addRasterImage(pai_metrics[['min']], colors = rhPal, opacity = .7, group = "Min") %>%
+  addRasterImage(pai_metrics[['max']], colors = rhPal, opacity = .7, group = "Max") %>%
+  addRasterImage(pai_metrics[['sd']], colors = rhPal, opacity = .7, group = "SD") %>%
+  
+  
+  addLegend(pal = paiPal, values = pairastvalues,
+            position = 'topleft',
+            title= ""#, opacity = .
+  ) %>%
+     addCircleMarkers(data = sample_level2BPAI, lng = sample_level2BPAI$lon_lowestmode, 
+                   lat = sample_level2BPAI$lat_lowestmode,
+                   popup = paste0('PAI-5m: ' , round(sample_level2BPAI$pai_z0_5m, 2),'<br>',
+                                  'Shot: ', sample_level2BPAI$shot_number), 
+                   radius = .2, group = 'GEDI', 
+                   color = ~paiPal(sample_level2BPAI$pai_z0_5m))  %>%
+ 
+  addLayersControl(position = 'topleft',
+                   overlayGroups = c('Mean', 'Min', 'Max', 'SD', 'GEDI'),
+                   options = layersControlOptions(collapsed = FALSE),
+                   baseGroups = c("OpenStreetMap", "Esri.WorldImagery")) %>%
+  addProviderTiles( "Esri.WorldImagery", group = "Esri.WorldImagery" )
+
+```
+
 
 ```{r}
 #plot fhd stats
@@ -385,4 +537,78 @@ cover_maps <- levelplot(cover_metrics,
                     at=seq(0, 1, len=101),
                     names.attr=c("CCF min","CCF max","CCF mean", "CCF sd"))
 cover_maps
+```
+
+
+
+
+SECTION 5: Compare two vegetation covers
+5.1 Define polygon areas
+
+We are definig two contrasting polygons, humand grasslands and forests. For this you can read polygons in WKT format (text) or from vecor/raster files using functions like raster::raster("mytif.tif") or rgdal::readOGR('mygpkg.gpkg')
+
+```{r}
+# Provide study areas
+wkt_deforested <- "POLYGON((-75.001718%200.23935,-74.998442%200.238726,-74.991579%200.237478,-74.986899%200.236073,-74.981439%200.234513,-74.983311%200.231079,-74.980659%200.22749,-74.975355%200.22234,-74.966463%200.225149,-74.965371%200.229831,-74.969115%200.234513,-74.977695%200.241223,-74.977383%200.244188,-74.969895%200.240287,-74.967243%200.23701,-74.958976%200.234357,-74.958352%200.228114,-74.962564%200.22156,-74.966463%200.220936,-74.967555%200.217971,-74.966775%200.214538,-74.966307%200.213913,-74.96116%200.20892,-74.955076%200.209232,-74.957884%200.204862,-74.96038%200.200961,-74.962252%200.195343,-74.966151%200.196591,-74.967711%200.201117,-74.967087%200.205799,-74.965527%200.209856,-74.970675%200.217035,-74.973764%200.219715,-74.977586%200.221665,-74.982343%200.22346,-74.983045%200.226113,-74.986165%200.229,-74.991157%200.231341,-74.989861%200.230941,-74.99232%200.231292,-74.99388%200.231994,-74.994582%200.234608,-74.995791%200.236481,-74.998794%200.237066,-75.000822%200.237027,-75.001718%200.23935))"
+
+wkt_forest <-  "POLYGON((-74.927009%200.104278,-74.892711%200.149222,-74.830976%200.101157,-74.874627%200.049971,-74.927009%200.104278))"
+
+
+# Convert WKT into R polygons
+deforested_poly <- readWKT(gsub('%20', ' ', wkt_deforested))
+forest_poly <- readWKT(gsub('%20', ' ', wkt_forest))
+
+
+# Filter coordinates
+deforested_pts <- level2AM_qual[na.omit(raster::extract(deforested_poly, level2AM_qual[, c('lon_lowestmode', 'lat_lowestmode')]))$point.ID,]
+forest_pts <- level2AM_qual[na.omit(raster::extract(forest_poly, level2AM_qual[, c('lon_lowestmode', 'lat_lowestmode')]))$point.ID,]
+
+ptsPal<-  colorNumeric(palette = "viridis", reverse = TRUE,
+                      domain = c(deforested_pts$rh100, forest_pts$rh100), na.color = "transparent")
+
+
+# Mapping the areas and GEDI points
+leaflet() %>%
+  addPolygons(data = deforested_poly, color = 'red', fill = NA,, group = 'Deforested' ) %>% 
+  addPolygons(data = forest_poly, color = 'blue', fill = NA,, group = 'Forest' ) %>% 
+  addCircleMarkers(data = deforested_pts,
+                   lng = deforested_pts$lon_lowestmode,
+                   lat = deforested_pts$lat_lowestmode,
+                   radius = 1, opacity = 0.5,
+                   color = ~ptsPal(rh100),
+                   popup = paste0("shot_number: ", deforested_pts$shot_number)) %>%
+  addCircleMarkers(data = forest_pts,
+                   forest_pts$lon_lowestmode,
+                   forest_pts$lat_lowestmode,
+                   radius = 1, opacity = 0.5, 
+                   color = ~ptsPal(rh100),
+                   popup = paste0("shot_number: ", forest_pts$shot_number))  %>%
+    addLegend(pal = paiPal, values = pairastvalues,
+            position = 'topleft', title= "Height (m)") %>%
+  addScaleBar(options = list(imperial = FALSE)) %>%
+  addProviderTiles(providers$Esri.WorldImagery) %>%
+  addLegend(colors = c("grey", "blue", "red"), labels = c("Region of Interest", "Quality GEDI Footprints", "Non-Quality GEDI Footprints"))
+
+```
+
+
+Now we will compare the profiles and max. height (rh100) in both polygons
+```{r}
+
+
+rh100Pts <- rbind.data.frame(cbind(deforested_pts, label = 'Deforested', clr = "#F8766D"),
+                                   cbind(forest_pts, label = 'Forest', clr = '#B79F00'))
+
+ggplot(data = rh100Pts[, c('shot_number', 'rh100', 'label', 'clr')], 
+       aes(x = label, y = label, color = label)) +
+  geom_boxplot(fill=0.8, outlier.size=0.5, color = 'black') +  
+  geom_point(position=position_jitter(width=0.3), alpha=0.8) +
+  guides(colour = guide_legend(override.aes = list(alpha=1))) + 
+  labs(x = "Area", y = "Height", title = 'Max. heigth', color = 'Area')
+
+ 
+
+plotRh100 <- plot_rh_profiles(rh100Pts, idcolumn = 'label', col_vector = rh100Pts$clr)
+
+
 ```
