@@ -8,8 +8,11 @@
 # Suppress Mac-specific folders
 .DS_Store
 
+# Suppress Windows-specific folders
+.desktop.ini
+
 # Suppress large file folders (temp)
 
 
-# Suppress Mac-specific folders
+# Suppress Rmd to generate full-workshop html
 /workshop/GEDI_workshop_walkthrough.Rmd

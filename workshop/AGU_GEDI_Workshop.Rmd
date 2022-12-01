@@ -569,8 +569,8 @@ ptsPal<-  colorNumeric(palette = "viridis", reverse = TRUE,
 
 # Mapping the areas and GEDI points
 leaflet() %>%
-  addPolygons(data = deforested_poly, color = 'red', fill = NA,, group = 'Deforested' ) %>% 
-  addPolygons(data = forest_poly, color = 'blue', fill = NA,, group = 'Forest' ) %>% 
+  addPolygons(data = deforested_poly, color = 'red', fill = NA, group = 'Deforested' ) %>% 
+  addPolygons(data = forest_poly, color = 'blue', fill = NA, group = 'Forest' ) %>% 
   addCircleMarkers(data = deforested_pts,
                    lng = deforested_pts$lon_lowestmode,
                    lat = deforested_pts$lat_lowestmode,
