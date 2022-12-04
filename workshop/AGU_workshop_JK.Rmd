@@ -47,7 +47,7 @@ library(rgeos)          ## nice plot tools
 library(RColorBrewer)   ## color palettes
 library(rasterVis)      ## raster viz tools
 library(viridis)        ## color palettes
-library(rdgal)          ## readOGR: Read OGR vector maps into Spatial objects
+library(rgdal)          ## readOGR: Read OGR vector maps into Spatial objects
 library(rhdf5)          ## R Interface to HDF5
 library(dismo)          ## Species Distribution Modeling
 library(smd)            ## Compute Standardized Mean Differences
