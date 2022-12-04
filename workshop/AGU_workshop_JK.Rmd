@@ -11,6 +11,7 @@ header-includes:
 ## SECTION 0: PREPARE R ENVIRONMENT
 0.1: Libraries
 
+(Do not need to run this chunk in binder)
 ```{r, warning=FALSE, message=FALSE, eval=F}
 #Install libraries if not already installed
 libs <- c('raster', 'devtools', 'sf', 'sp', 'data.table', 'dplyr', 'lidR', 
@@ -54,6 +55,7 @@ library(rgdal)          ## readOGR: Read OGR vector maps into Spatial objects
 library(rhdf5)          ## R Interface to HDF5
 library(dismo)          ## Species Distribution Modeling
 library(sdm)            ## Species Distribution Modelling
+library(randomForest)   ## For sdm methd 'rf'
 ```
 
 0.2: Directory and Subdirectories 
