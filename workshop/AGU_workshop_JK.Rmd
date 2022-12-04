@@ -16,12 +16,15 @@ header-includes:
 libs <- c('raster', 'devtools', 'sf', 'sp', 'data.table', 'dplyr', 'lidR', 
           'httr', 'tidyr', 'curl', 'hdf5r', 'leaflet', 'leaflet.extras', 
           'leafsync', 'ggplot2', 'rgeos', 'RColorBrewer', 'rasterVis',
-          'viridis', 'rdgal', 'rhdf5', 'dismo', 'smd')
+          'viridis', 'rdgal', 'rhdf5', 'dismo', 'sdm')
 sapply(libs, FUN = function(x){
   if (!x %in% installed.packages()){
     install.packages(x)
   } 
 })
+
+#it is a good practice to call installAll function (just one time when the sdm is installed), that tries to install all the packages that may be needed somewhere in the sdm package.
+sdm::installAll()
 ```
 
 
@@ -50,7 +53,7 @@ library(viridis)        ## color palettes
 library(rgdal)          ## readOGR: Read OGR vector maps into Spatial objects
 library(rhdf5)          ## R Interface to HDF5
 library(dismo)          ## Species Distribution Modeling
-library(smd)            ## Compute Standardized Mean Differences
+library(sdm)            ## Species Distribution Modelling
 ```
 
 0.2: Directory and Subdirectories 
@@ -655,7 +658,7 @@ plot(sp_locations[sp_locations$Presence == 1,],col='blue',pch=16)
 Add environmental variable raster brick and then add GEDI rasters to it
 ```{r}
 
-bioclim_data <- raster(paste0(wd,"./data/Bioclim_data_AOI2.tif"))
+bioclim_data <- raster(paste0(wd,"/data/bioclim_data_AOI2.tif"))
 
 #take a look
 plot(bioclim_data$MeanAnnualTemp)
