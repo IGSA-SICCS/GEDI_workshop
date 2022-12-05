@@ -28,15 +28,28 @@ The purpose of this workshop is to assist interested Ecologists, Biologists, and
 The presentation contains (1) a summary of workshop goals and expected outcomes, (2) an overview of the GEDI instrument, data types, and data products, (3) examples of GEDI data applications in biological and ecological research, and (4) instructions for using the rGEDI package API to download data in R
 
 ### 2. Scripts
-The scripts for workshop can be launched from the binder (badge above). Binder is an open-source web service which hosts interactive and reproducible environments. You do not need to install any programs or dependencies to use this.
+The scripts for workshop can be launched from the binder (badge above). Binder is an open-source web service which hosts interactive and reproducible environments. You do not need to install any programs or dependencies to use this. After loading the binder link, select workshop/AGU_GEDI_Workshop.Rmd in the bottom right panel to open the script.
+
 If you prefer, you can also run workshop scripts in Rstudio. AGU_GEDI_Workshop.Rmd contains the workflow.
 
 Section 1: How to download GEDI data for a region of interest.
+
 Section 2: How to filter and clip GEDI data products to your region of interest and visualize GEDI footprints
+
 Section 3: How to visualize GEDI data including waveforms, height metrics, and derived indices
+
 Section 4: How to compute descriptive statistics and create raster layers from GEDI footprints
 
+Section 5: How to compare areas
+
+Section 6: How to apply GEDI data to ecological biological models (Ex: species distribution model)
+
 ### 3. Data
-We provide small sample datasets which are compatible with the scripts. These allow users to use the scripts without waiting for data download (a significant commitment).
+We provide small sample datasets which are compatible with the scripts. These allow users to use the scripts without waiting for data download (a significant time/storage commitment).
 
 ## Additional resources
+
+[GEDI Home Page](https://gedi.umd.edu/)
+[The Global Ecosystem Dynamics Investigation: High-resolution laser ranging of the Earth’s forests and topography - ScienceDirect](https://www.sciencedirect.com/science/article/pii/S2666017220300018?via%3Dihub)
+[Incorporating canopy structure from simulated GEDI lidar into bird species distribution models - IOP Science](https://iopscience.iop.org/article/10.1088/1748-9326/ab80ee/meta)
+[rGEDI: An R Package for NASA’s Global Ecosystem Dynamics Investigation (GEDI) Data Visualization and Processing](https://cran.microsoft.com/snapshot/2020-04-20/web/packages/rGEDI/vignettes/tutorial.html)
