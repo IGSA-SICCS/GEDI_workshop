@@ -2402,11 +2402,11 @@ gridStatsLevel2BVPM = function(level2BVPM, func, res)
 }
 
 
-
-plot_rh_profiles <- function(sample_region, col_vector = NULL, rh = 0:100, idcolumn = 'shot_number'){
+plot_rh_profiles <- function(sample_region, col_vector = NULL, rh = 0:100, idcolumn = 'shot_number', bunch = FALSE){
   # sample_region = rh100Pts
   # col_vector = rh100Pts$clr
   # idcolumn = 'label'
+  # rh = 0:100
   
   df <- data.frame(sample_region)
   if(is.null(df$sortid)){
@@ -2452,13 +2452,26 @@ plot_rh_profiles <- function(sample_region, col_vector = NULL, rh = 0:100, idcol
   diffDf <- do.call(rbind, diffProf)
   dfAbove0 <- subset(diffDf, rh > 0)
   
-  gg <- ggplot(dfAbove0, aes(x = rh, y = h, group = sortid)) +
-    geom_line(orientation = "y", data = dfAbove0[order(dfAbove0$h), ], 
-              aes(x = ex, y = h, colour = 'grey50')) +  
-    geom_line(aes(colour = clr)) +   geom_point(aes(colour = clr)) +  
-    scale_color_identity() +  facet_grid(.~sortid) + labs(x = 'Returned Energy', y = 'Height (m)') 
-  print(gg)
-  return(gg)
+  if( !bunch){
+    gg <- ggplot(dfAbove0, aes(x = rh, y = h, group = sortid)) +
+      geom_line(orientation = "y", data = dfAbove0[order(dfAbove0$h), ], 
+                aes(x = ex, y = h, colour = 'grey50')) +  
+      geom_line(aes(colour = clr)) +   geom_point(aes(colour = clr)) +  
+      scale_color_identity() +  facet_grid(.~sortid) + labs(x = 'Returned Energy', y = 'Height (m)') 
+    print(gg)
+    return(gg)
+  } else {
+    dfAbove0 <- subset(dfAbove0, h > 0)
+    gg <- ggplot(dfAbove0, aes(x = rh, y = h, group = sortid, factor = clr)) +
+      #geom_line(orientation = "y", data = dfAbove0[order(dfAbove0$h), ], aes(x = ex, y = h, colour = clr,  group = sortid, alpha = .2)) +  
+      # geom_point(aes(colour = clr)) +  
+      geom_line(aes(colour = clr), alpha = .2) +   
+      scale_color_identity() +  facet_grid(.~clr) + 
+      guides(colour = guide_legend(override.aes = list(alpha=1))) + 
+      labs(x = 'Returned Energy', y = 'Height (m)', alpha = NULL) 
+    print(gg)
+    return(gg)
+  }
 }
 
 
