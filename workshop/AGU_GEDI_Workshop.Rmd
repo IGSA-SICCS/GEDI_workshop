@@ -692,7 +692,10 @@ plot(sp_locations[sp_locations$Presence == 1,],col='blue',pch=16)
 
 Add environmental variable raster brick and then add GEDI rasters to it
 ```{r}
-bioclim_data <- raster(paste0(wd,"/data/bioclim_data_AOI2.tif"))
+bioclim_data <- brick(paste0(wd,"/data/bioclim_data_AOI2.tif"))
+
+#change names of layers
+names(bioclim_data) <- c("MeanAnnualTemp", "TempAnnualRange", "MeanAnnualPrecip")
 
 #take a look
 plot(bioclim_data$MeanAnnualTemp)
