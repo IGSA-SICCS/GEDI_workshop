@@ -746,6 +746,6 @@ getVarImp(m1)
 
 ```{r}
 #predict
-p1 <- predict(m1,newdata=preds) 
+p1 <- predict(m1,newdata=preds, filename="./outputs/sdm_prediction") 
 plot(p1)
 ```
