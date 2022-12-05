@@ -9,7 +9,7 @@
 .DS_Store
 
 # Suppress Windows-specific folders
-.desktop.ini
+
 
 # Suppress large file folders (temp)
 
