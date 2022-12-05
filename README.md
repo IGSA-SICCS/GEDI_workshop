@@ -50,6 +50,9 @@ We provide small sample datasets which are compatible with the scripts. These al
 ## Additional resources
 
 [GEDI Home Page](https://gedi.umd.edu/)
+
 [The Global Ecosystem Dynamics Investigation: High-resolution laser ranging of the Earth’s forests and topography - ScienceDirect](https://www.sciencedirect.com/science/article/pii/S2666017220300018?via%3Dihub)
+
 [Incorporating canopy structure from simulated GEDI lidar into bird species distribution models - IOP Science](https://iopscience.iop.org/article/10.1088/1748-9326/ab80ee/meta)
+
 [rGEDI: An R Package for NASA’s Global Ecosystem Dynamics Investigation (GEDI) Data Visualization and Processing](https://cran.microsoft.com/snapshot/2020-04-20/web/packages/rGEDI/vignettes/tutorial.html)
