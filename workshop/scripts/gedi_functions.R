@@ -1437,7 +1437,7 @@ getLevel2AM<-function(level2a){
   level2a<-level2a@h5
   groups_id<-grep("BEAM\\d{4}$",gsub("/","",
                                      hdf5r::list.groups(level2a, recursive = F)), value = T)
-  rh.dt<-data.table::data.table()
+rh.dt<-data.table::data.table()
   pb <- utils::txtProgressBar(min = 0, max = length(groups_id), style = 3)
   i.s=0
   
@@ -1459,8 +1459,12 @@ getLevel2AM<-function(level2a){
         shot_number=level2a_i[["shot_number"]][],
         degrade_flag=level2a_i[["degrade_flag"]][],
         quality_flag=level2a_i[["quality_flag"]][],
-        quality_flag=level2a_i[["delta_time"]][],
+        delta_time=level2a_i[["delta_time"]][],
         sensitivity=level2a_i[["sensitivity"]][],
+        sensitivity_a2=level2a_i[["geolocation/sensitivity_a2"]][],
+        surface_flag=level2a_i[["surface_flag"]][],
+        water_persistence=level2a_i[["land_cover_data/landsat_water_persistence"]][],
+        urban_proportion=level2a_i[["land_cover_data/urban_proportion"]][],
         solar_elevation=level2a_i[["solar_elevation"]][],
         lat_lowestmode=level2a_i[["lat_lowestmode"]][],
         lon_lowestmode=level2a_i[["lon_lowestmode"]][],
@@ -1472,8 +1476,9 @@ getLevel2AM<-function(level2a){
   }
   
   colnames(rh.dt)<-c("beam","shot_number","degrade_flag","quality_flag","delta_time",
-                     "sensitivity","solar_elevation","lat_lowestmode","lon_lowestmode",
-                     "elev_highestreturn","elev_lowestmode",paste0("rh",seq(0,100)))
+                     "sensitivity", "sensitivity_a2", "surface_flag",
+                     "water_persistence", "urban_proportion", "solar_elevation",
+                     "lat_lowestmode","lon_lowestmode","elev_highestreturn","elev_lowestmode",paste0("rh",seq(0,100)))
   close(pb)
   return(rh.dt)
 }
