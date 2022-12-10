@@ -699,6 +699,41 @@ ggp <- ggplot(data = rh100Pts[, c('shot_number', 'rh100', 'label', 'clr')],
 ggp
 ```
 
+Now compare the max. height (rh100) from raster
+```{r boxplot}
+
+aoi_pols <- raster::bind(forest_poly, deforested_poly)
+rh100metrics_clip <- raster::mask(rh100metrics[['max']], aoi_pols)
+rh100metrics_clip_vals <- raster::extract(rh100metrics_clip, aoi_pols, df = TRUE )
+rh100metrics_clip_vals$label <- ifelse(rh100metrics_clip_vals$ID == 1, 'Forest', 'Deforested')
+
+ggp2 <- ggplot(data = rh100metrics_clip_vals, 
+       aes(x = label, y = max, color = label)) +
+  geom_boxplot(fill=0.8, outlier.size=0.5, color = 'black') +  
+  geom_point(position=position_jitter(width=0.3), alpha=0.8) +
+  guides(colour = guide_legend(override.aes = list(alpha=1))) + 
+  labs(x = "Area", y = "Heigh (m)", title = 'Max. heigth from GEDI raster', color = 'label')
+ggp2
+```
+
+Compare PAI values
+```{r pai comparison}
+
+deforested_pts_pai <- level2BPAIProfile[na.omit(raster::extract(deforested_poly, level2AM_qual[, c('lon_lowestmode', 'lat_lowestmode')]))$point.ID,c('pai_z0_5m')]
+forest_pts_pai <- level2BPAIProfile[na.omit(raster::extract(forest_poly, level2AM_qual[, c('lon_lowestmode', 'lat_lowestmode')]))$point.ID, c('pai_z0_5m')]
+
+paiPts <- rbind.data.frame(cbind(deforested_pts_pai, label = 'Deforested', clr = "#F8766D"),
+                                   cbind(forest_pts_pai, label = 'Forest', clr = '#00BFC4'))
+
+ggp3 <- ggplot(data = paiPts, 
+       aes(x = label, y = pai_z0_5m, color = label)) +
+  geom_boxplot(fill=0.8, outlier.size=0.5, color = 'black') +  
+  geom_point(position=position_jitter(width=0.3), alpha=0.8) +
+  guides(colour = guide_legend(override.aes = list(alpha=1))) + 
+  labs(x = "Area", y = "PAI (m2 m^-2)", title = 'PAI betweeen 0-5m from GEDI points', color = 'Area')
+ggp3
+
+```
 
 ## SECTION 6: Model applications
 
