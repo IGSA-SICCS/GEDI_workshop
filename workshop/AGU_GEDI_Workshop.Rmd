@@ -9,28 +9,24 @@ header-includes:
 ---
 
 
-
 ## SECTION 0: PREPARE R ENVIRONMENT
 0.1: Libraries
 
-(Do not need to run this chunk when running in Binder)
+Do not need to run this chunk when running in Binder
 ```{r, warning=FALSE, message=FALSE, eval=F}
-
 #Install libraries if not already installed
+#libs <- c('raster', 'devtools', 'sf', 'sp', 'data.table', 'dplyr', 'lidR', 
+#          'httr', 'tidyr', 'curl', 'hdf5r', 'leaflet', 'leaflet.extras', 
+#          'leafsync', 'ggplot2', 'rgeos', 'RColorBrewer', 'rasterVis',
+#          'viridis', 'rdgal', 'rhdf5', 'dismo', 'sdm', 'randomForest', 'hdf5r')
 
-libs <- c('raster', 'devtools', 'sf', 'sp', 'data.table', 'dplyr', 'lidR', 
-          'httr', 'tidyr', 'curl', 'hdf5r', 'leaflet', 'leaflet.extras', 
-          'leafsync', 'ggplot2', 'rgeos', 'RColorBrewer', 'rasterVis',
-          'viridis', 'rdgal', 'rhdf5', 'dismo', 'sdm')
+#sapply(libs, FUN = function(x){
+#  if (!x %in% installed.packages()){
+#    install.packages(x)
+#  } 
+#})
 
-sapply(libs, FUN = function(x){
-  if (!x %in% installed.packages()){
-    install.packages(x)
-  } 
-})
-
-#it is a good practice to call the installAll function (just one time when the sdm package is installed), that tries to install all the packages that may be needed somewhere in the sdm package.
-sdm::installAll()
+#sdm::installAll()
 ```
 
 ```{r load libraries, warning=FALSE, message=FALSE}
@@ -57,9 +53,10 @@ library(rhdf5)        ## R Interface to HDF5
 library(dismo)        ## Species Distribution Modeling
 library(sdm)          ## Species Distribution Modelling
 library(randomForest) ## For sdm methd 'rf'
+library(hdf5r)
 #library(rGEDI)       ## GEDI functions in R
-
 ```
+
 
 0.2: Directory and Subdirectories 
 ```{r definw working directory}
@@ -125,10 +122,10 @@ gL2A <- gedi_temp_filter(gL2A, 'GEDI02_A.002', daterange)
 gL2B <- gedi_temp_filter(gL2B, 'GEDI02_B.002', daterange)
 ```
 
-1.5: Use gedi_download to download GEDI data (DO NOT RUN -- takes a while and we have some files downloades already)
+Stop here -------------------------------
+1.5: Use gedi_download to download GEDI data (DO NOT RUN)
 ```{r download, eval=FALSE}
 #download data product to their output data directory 
-#This functions will download heavy files (>1GB each) that can take long time
 
 # gedi_download(filepath=gL1B,outdir=gL1B_dir)
 # gedi_download(filepath=gL2A,outdir=gL2A_dir)
@@ -136,8 +133,7 @@ gL2B <- gedi_temp_filter(gL2B, 'GEDI02_B.002', daterange)
 ```
 
 
-SECTION 2: CLIP GEDI DATA PRODUCTS TO REGION OF INTEREST
-Stop here -------------------------------
+SECTION 2: CLIP GEDI DATA PRODUCTS TO REGION OF INTEREST AND FILTER FOR QUALITY SHOTS
 2.1 Read GEDI data (DO NOT RUN)
 ```{r load original files, eval=FALSE}
 #read the level 1B, 2A, and 2B for a single orbit
@@ -164,23 +160,37 @@ gedilevel2B <- readLevel2B(level2Bpath = paste0(gL2B_dir,"GEDI02_B_2020160005619
 ```
 
 2.3 Use GEDI L2A quality flag to select only quality shots
-```{r manipulate L2A}
-#read GEDI L2A data into data.table
-level2AM <- getLevel2AM(gedilevel2A)
-head(level2AM, 3) ## Check the data structure
-dim(level2AM)
+```{r L2A H5 groups}
+#view GEDI L2A h5 layers
+h5groups2A <- hdf5r::list.groups(gedilevel2A@h5[['BEAM0000']])
+h5groups2A
+```
 
+```{r L2A H5 datasets}
+#view GEDI L2A h5 layers
+h5datasets2A <- hdf5r::list.datasets(gedilevel2A@h5[['BEAM0000']])
+head(h5datasets2A, 100)
+```
+
+```{r format L2A}
+#read select GEDI L2A layers into data.table
+level2AM <- getLevel2AM(gedilevel2A)
+head(level2AM, 5)
+```
+
+```{r quality filter}
 #convert shot_number from integer to character
 level2AM$shot_number <- paste0(level2AM$shot_number)
+dim(level2AM)
 
 #filtering for quality_flag == 1
 level2AM_qual <- level2AM[quality_flag == 1]
 dim(level2AM_qual)
 ```
 
-2.4 Visualize location of quality filtered GEDI footprints 
+2.4 Visualize location of quality_flag filtered GEDI footprints 
 ```{r plot original points}
-#view footprint locations for entire orbit on map 
+#view footprint locations on map 
 leaflet() %>%
   addRectangles(
     lng1=ll_lon, lat1=ll_lat,
@@ -207,14 +217,14 @@ leaflet() %>%
   addLegend(colors = c("grey", "blue", "red"), labels = c("Region of Interest", "Quality GEDI Footprints", "Non-Quality GEDI Footprints"))
 ```
 
-
+2.5 Filter beams to select only Power Beams
 ```{r explore beams}
-# View beams based on their type
-# BEAM0000,BEAM0001,BEAM0010,BEAM0011 are Coverage Beams. 
-# BEAM0101,BEAM0110,BEAM1000,BEAM1011 are Full Power Beams
+#view beams based on their type
+  #BEAM0000,BEAM0001,BEAM0010,BEAM0011 are Coverage Beams. 
+  #BEAM0101,BEAM0110,BEAM1000,BEAM1011 are Full Power Beams
 level2AM_qual$beamType <- ifelse(level2AM_qual$beam %in% c('BEAM0000','BEAM0001','BEAM0010','BEAM0011'), 'Coverage', 'Power')
 
-#view footprint locations for entire orbit on map 
+#view footprint locations on map 
 leaflet() %>%
   addCircleMarkers(level2AM_qual$lon_lowestmode,
                    level2AM_qual$lat_lowestmode,
@@ -222,7 +232,7 @@ leaflet() %>%
                    opacity = 0.5,
                    color = c('red', 'blue')[as.numeric(as.factor(level2AM_qual$beamType))], 
                    popup = paste0(level2AM_qual$beamType, ' beam - ', level2AM_qual$beam, 
-                                  '<br>', level2AM_qual$shot_number ))  %>%
+                                  '<br>', 'shot_number: ', level2AM_qual$shot_number ))  %>%
 
   addScaleBar(options = list(imperial = FALSE)) %>%
   addProviderTiles(providers$Esri.WorldImagery) %>%
@@ -232,13 +242,48 @@ leaflet() %>%
 ```
 
 ```{r plot beams shots}
-# Plot power and coverage shots ID from previous interactive map
+#plot power and coverage shots ID from previous interactive map
 plotVertProfiles <- plot_rh_profiles(level2AM_qual[shot_number %in%
                                                      c("84280500300243078", "84280300300243183")], # power and coverage
                                      idcolumn = 'beamType', col_vector = c('blue', 'red'))
 ```
+```{r}
+#subset data frame to only include Power Beam shots
+dim(level2AM_qual)
+level2AM_qual <- level2AM_qual[beamType == 'Power']
+dim(level2AM_qual)
+```
 
-2.4 Select individual footprints along a structurally heterogeneous gradient
+2.6 Further filter shots using region-specific quality parameters
+```{r region filters}
+#using a set of other region-specific quality parameters
+dim(level2AM_qual)
+level2AM_qual <- level2AM_qual[sensitivity_a2 > 0.95]
+level2AM_qual <- level2AM_qual[rh100 <= 50]
+level2AM_qual <- level2AM_qual[surface_flag == 1]
+level2AM_qual <- level2AM_qual[water_persistence < 10]
+level2AM_qual <- level2AM_qual[urban_proportion < 50]
+dim(level2AM_qual)
+```
+
+2.7 Visualize final filtered GEDI L2A dataset
+```{r}
+#view footprint locations on map 
+leaflet() %>%
+  addCircleMarkers(level2AM_qual$lon_lowestmode,
+                   level2AM_qual$lat_lowestmode,
+                   radius = 1,
+                   opacity = 0.5,
+                   color =  'blue', 
+                   popup = paste0('shot_number: ', level2AM_qual$shot_number ))  %>%
+
+  addScaleBar(options = list(imperial = FALSE)) %>%
+  addProviderTiles(providers$Esri.WorldImagery) %>%
+  addLegend(colors = "blue", 
+            labels = "Final Filtered Shots")
+```
+
+2.8 Select individual footprints along a structurally heterogeneous gradient
 ```{r veg gradient}
 sample_shots <- c("84280500300242755", "84280500300242756", "84280500300242757", "84280500300242758", "84280500300242759")
 sample_region <- level2AM_qual[shot_number %in% sample_shots]
@@ -263,13 +308,14 @@ leaflet() %>%
                    popup = paste0("shot_number: ", sample_region$shot_number))  %>%
   addScaleBar(options = list(imperial = FALSE)) %>%
   addProviderTiles(providers$Esri.WorldImagery) %>%
-  addLegend(colors = c("grey", "blue"), labels = c("Sample Region", "GEDI Footprints")) 
+  addLegend(colors = c("grey", "blue"), labels = c("Sample Region", "Selected Shots")) 
 ```
 
 Now lets see their vertical profiles
 ```{r plot vertical profiles}
 plotVertProfiles <- plot_rh_profiles(sample_region, idcolumn = 'shot_number', col_vector = pointColors)
 ```
+
 
 ## SECTION 3: Visualize GEDI Data Products 
 3.1 Plot GEDIL1B Full Waveform 
@@ -287,43 +333,29 @@ wf_grass <- getLevel1BWF(gedilevel1B, shot_number=shotnum_grass)
 
 #check shot's data structure
 head(wf_forest@dt)
-
 ```
 
-```{r plot raw waveforms}
-#plot raw waveforms
+```{r plot waveforms}
+#plot waveforms
 par(mfrow = c(1,1), mar=c(4,4,1,1), cex.axis = 1.5)
 
-plot(wf_forest, relative=FALSE, polygon=TRUE, type="l", lwd=2, col="#FDE725",
-    xlab="Waveform Amplitude", ylab="Elevation (m)", main="Raw Waveform: Forest", xlim=c(200,500), ylim=c(200,260))
+plot(wf_forest, relative=TRUE, polygon=TRUE, type="l", lwd=2, col="#FDE725",
+    xlab="Waveform Amplitude(%)", ylab="Elevation (m)", main="GEDIL1B rxwaveform: Forest", ylim=c(200,260))
 
-plot(wf_edge, relative=FALSE, polygon=TRUE, type="l", lwd=2, col="#21908D",
-    xlab="Waveform Amplitude", ylab="Elevation (m)", main="Raw Waveform: Edge", xlim=c(200,500), ylim=c(200,260), add = TRUE)
+plot(wf_edge, relative=TRUE, polygon=TRUE, type="l", lwd=2, col="#21908D",
+    xlab="Waveform Amplitude(%)", ylab="Elevation (m)", main="GEDIL1B rxwaveform: Edge", ylim=c(200,260), add = TRUE)
 
-plot(wf_grass, relative=FALSE, polygon=TRUE, type="l", lwd=2, col="#440154",
-    xlab="Waveform Amplitude", ylab="Elevation (m)", main="Raw Waveform: Grass", xlim=c(200,500), ylim=c(200,260), add = TRUE)
+plot(wf_grass, relative=TRUE, polygon=TRUE, type="l", lwd=2, col="#440154",
+    xlab="Waveform Amplitude(%)", ylab="Elevation (m)", main="GEDIL1B rxwaveform: Grass", ylim=c(200,260), add = TRUE)
 ```
 
 3.2 Plot GEDIL2A Elevation and Height Metrics 
-```{r plot height profiles}
+```{r plot height profiles }
 #plot waveform with GEDIL2A relative height metrics
-plotWFMetrics(level1b = gedilevel1B, level2a = gedilevel2A, shot_number = shotnum_forest, rh=c(25, 50, 75, 90))
-plotWFMetrics(gedilevel1B, gedilevel2A, shotnum_edge, rh=c(25, 50, 75, 90))
-plotWFMetrics(gedilevel1B, gedilevel2A, shotnum_grass, rh=c(25, 50, 75, 90))
-```
-
-Lets use the same elevation range to compare the previous shots
-```{r plot height profiles same range}
-#plot waveform with GEDIL2A relative height metrics but with a standard scale
-
 plotWFMetrics(gedilevel1B, gedilevel2A, shotnum_forest, rh=c(25, 50, 75, 90), customylim = c(200, 240), main = 'Forest', add = TRUE, colBG = "#FDE725")
 plotWFMetrics(gedilevel1B, gedilevel2A, shotnum_edge, rh=c(25, 50, 75, 90), customylim = c(200, 240), main = 'Edge', add = TRUE, colBG = "#21908D")
 plotWFMetrics(gedilevel1B, gedilevel2A, shotnum_grass, rh=c(25, 50, 75, 90), customylim = c(200, 240), main = 'grass', add = TRUE, colBG = "#440154")
-
-
 ```
-
-
 
 3.3 Plot GEDIL2B Plant Area Index (PAI) and Plant Area Volume Density (PAVD)
 ```{r get L2B data in R}
@@ -336,7 +368,6 @@ head(level2BVPM, 3)
 # check the dimensions
 dim(level2BVPM)
 
-
 #filtering for quality_flag == 1
 level2BVPM <- level2BVPM[l2b_quality_flag == 1]
 dim(level2BVPM)
@@ -345,7 +376,6 @@ dim(level2BVPM)
 level2BVPM$pai[level2BVPM$pai==-9999]<-NA # assigning NA to -9999
 dim(level2BVPM)
 ```
-
 
 ```{r plot PAI profiles}
 #get pai profile metrics 
@@ -359,7 +389,6 @@ dim(level2BPAIProfile)
 #convert shot_number from integer to character
 level2BPAIProfile$shot_number <- paste0(level2BPAIProfile$shot_number)
 
-
 #select the previous shots to examine their PAI
 smallLevel2BPAIProfile <- level2BPAIProfile[level2BPAIProfile$shot_number %in% sample_shotnums, ]
 sample_colors <- c("#FDE725", "#21908D",  "#440154")
@@ -371,8 +400,7 @@ head(smallLevel2BPAIProfile)[, 1:18]
 PAIplot <- plotPAIshots(smallLevel2BPAIProfile, col_vector = sample_colors, cutUntil0 = TRUE, idcolumn = 'shot_number')
 ```
 
-
-```{r plot PAI track}
+```{r plot PAI track, warning=FALSE}
 #plot Level2B PAI Profile 
 gPAIprofile <- plotPAIProfile(level2BPAIProfile, beam="BEAM0101", elev=TRUE)
 ```
@@ -400,11 +428,11 @@ head(smallLevel2BPVDProfile)[, 1:18]
 PAVDplot <- plotPAVDshots(smallLevel2BPVDProfile, col_vector = sample_colors, cutUntil0 = TRUE, idcolumn = 'shot_number')
 ```
 
-
 ```{r plot PAVD track}
 #plot Level2B PAVD Profile
 gPAVDprofile<-plotPAVDProfile(level2BPAVDProfile, beam="BEAM0101", elev=TRUE)
 ```
+
 
 ## SECTION 4: Create Raster Layers 
 4.1 Compute Descriptive Statistics 
@@ -416,10 +444,9 @@ print(rh100metrics_st) # Check the results
 #compute a series of statistics for GEDI canopy cover metrics 
 cover_metrics_st <- polyStatsLevel2BVPM(level2BVPM, func=SetOfMetrics(cover))
 print(cover_metrics_st) # Check the results
-
 ```
 
-4.1 Compute Descriptive Height Stats 
+4.1 Compute Descriptive Height Statistics
 ```{r raster summary}
 #compute a series of statistics for GEDI relative height metrics 
 rh100metrics <- gridStatsLevel2AM(level2AM_qual, func=SetOfMetrics(rh100), res=0.010)
@@ -448,7 +475,6 @@ rh100maps <- levelplot(rh100metrics,
                      names.attr=c("rh100 min","rh100 max","rh100 mean", "rh100 sd"))
 rh100maps
 ```
-
 
 ```{r compare points raster}
 #plot rh100 stats over the map
@@ -487,8 +513,6 @@ leaflet() %>% addTiles() %>%
 
 ```
 
-
-
 4.2 Compute Descriptive Canopy Cover Stats 
 ```{r L2B stats}
 #compute a series of statistics for GEDI plant area index
@@ -520,7 +544,7 @@ pai_maps <- levelplot(pai_metrics,
 pai_maps
 ```
 
-```{r plot PAI}
+```{r plot PAI, warning = FALSE}
 #plot pai stats over the map
 pai_metrics@crs <- CRS("+proj=longlat +datum=WGS84 +no_defs")
 sample_level2BPAI <- level2BPAIProfile[sample(size = 100, nrow(level2BPAIProfile)), ]
@@ -555,7 +579,6 @@ leaflet() %>% addTiles() %>%
 
 ```
 
-
 ```{r FHD maps}
 #plot fhd stats
 fhd_maps <- levelplot(fhd_metrics,
@@ -579,7 +602,6 @@ fhd_maps <- levelplot(fhd_metrics,
 fhd_maps
 ```
 
-
 ```{r plot cover}
 #plot cover stats
 cover_maps <- levelplot(cover_metrics,
@@ -602,7 +624,6 @@ cover_maps <- levelplot(cover_metrics,
                     names.attr=c("CCF min","CCF max","CCF mean", "CCF sd"))
 cover_maps
 ```
-
 
 
 ## SECTION 5: Compare two vegetation covers
